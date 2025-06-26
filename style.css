@@ -207,4 +207,101 @@ tr:hover {
         font-size: 0.98rem;
         padding: 0 8px;
     }
+}
+.product-btn {
+    background: #5c6bc0;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    margin-top: 8px;
+    display: inline-block;
+    transition: background-color 0.2s;
+}
+.product-btn:hover {
+    background: #3f51b5;
+}
+.fiche-btn {
+    background: #00897b;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    display: inline-block;
+    transition: background-color 0.2s;
+}
+.fiche-btn:hover {
+    background: #00695c;
+}
+.btn-container {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+#product-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+#product-modal.hidden {
+    display: none;
+}
+#close-product-modal {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    font-size: 1.5rem;
+    color: #888;
+    cursor: pointer;
+    font-weight: bold;
+    transition: color 0.2s;
+}
+#close-product-modal:hover {
+    color: #e53935;
+}
+#product-body {
+    margin-top: 12px;
+    font-size: 1.08em;
+    color: #222;
+}
+#fiche-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+#fiche-modal.hidden {
+    display: none;
+}
+#close-fiche-modal {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    font-size: 1.5rem;
+    color: #888;
+    cursor: pointer;
+    font-weight: bold;
+    transition: color 0.2s;
+}
+#close-fiche-modal:hover {
+    color: #e53935;
+}
+#fiche-body {
+    margin-top: 12px;
+    font-size: 1.08em;
+    color: #222;
 } 

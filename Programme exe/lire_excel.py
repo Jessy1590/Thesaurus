@@ -3,6 +3,9 @@ import json
 from datetime import datetime
 import os
 import sys
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 # Dossier où se trouve l'exécutable ou le script
 if getattr(sys, 'frozen', False):
@@ -23,23 +26,23 @@ df_indications = feuilles['Indications']
 df_posologie = feuilles['Posologie']
 
 # Normalisation des clés pour la fusion (minuscule, strip)
-df_molecule['DCI_KEY'] = df_molecule['l'].astype(str).str.lower().str.strip()
+df_molecule['DCI_KEY'] = df_molecule['DCI'].astype(str).str.lower().str.strip()
 df_indications['DCI_KEY'] = df_indications['DCI'].astype(str).str.lower().str.strip()
 df_surveillance['DCI_KEY'] = df_surveillance['DCI'].astype(str).str.lower().str.strip()
 df_posologie['DCI_KEY'] = df_posologie['DCI'].astype(str).str.lower().str.strip()
 
 rows = []
 for dci_key, group in df_molecule.groupby('DCI_KEY'):
-    dci_display = group['l'].iloc[0]
+    dci_display = group['DCI'].iloc[0]
     # Rassembler tous les produits de la DCI
     details = []
     nb_produits = len(group)
     for i, (_, prod) in enumerate(group.iterrows(), 1):
         produit_points = []
         for col in df_molecule.columns:
-            if col not in ['DCI_KEY', 'l']:
+            if col not in ['DCI_KEY', 'DCI']:
                 val = prod[col]
-                if not (pd.isna(val) or val == ''):
+                if not (isinstance(val, float) and pd.isna(val)) and val != '':
                     produit_points.append(f"{col.strip()} : {val}")
         if produit_points:
             if nb_produits > 1:
@@ -53,9 +56,17 @@ for dci_key, group in df_molecule.groupby('DCI_KEY'):
     # Indications + remboursement
     indications_df = df_indications[df_indications['DCI_KEY'] == dci_key]
     if 'Remboursement' in indications_df.columns:
-        indications_list = [[d['Indications'], d['Remboursement']] for d in indications_df[['Indications', 'Remboursement']].to_dict('records')]
+        indications_records = indications_df[['Indications', 'Remboursement']]
+        if isinstance(indications_records, pd.DataFrame):
+            indications_list = [[d['Indications'], d['Remboursement']] for d in indications_records.to_dict('records')]
+        else:
+            indications_list = []
     else:
-        indications_list = [[d['Indications']] for d in indications_df[['Indications']].to_dict('records')]
+        indications_records = indications_df[['Indications']]
+        if isinstance(indications_records, pd.DataFrame):
+            indications_list = [[d['Indications']] for d in indications_records.to_dict('records')]
+        else:
+            indications_list = []
     if indications_list and len(indications_list[0]) == 2:
         indications_str = '\n'.join([f"• {indication} ({remboursement})" for indication, remboursement in indications_list])
     else:
@@ -63,13 +74,24 @@ for dci_key, group in df_molecule.groupby('DCI_KEY'):
     # Posologies
     posologies = df_posologie[df_posologie['DCI_KEY'] == dci_key]['Posologie'].tolist()
     posologies_str = '\n'.join([f"• {p}" for p in posologies]) if posologies else ''
+    
+    # Récupérer la fiche (si elle existe)
+    fiche_str = ''
+    if 'Fiche' in group.columns:
+        # On prend la première valeur non nulle de la fiche pour cette DCI
+        fiches = group['Fiche'].dropna().unique()
+        if len(fiches) > 0:
+            fiche_str = str(fiches[0])
+
     # Ligne finale
     row = {
         'DCI': dci_display,
+        'Famille de molécule': group['Famille médicament'].iloc[0] if 'Famille médicament' in group.columns else '',
         'Détails produit': details_str,
         'Surveillance': surveillances_str,
         'Indications': indications_str,
-        'Posologie': posologies_str
+        'Posologie': posologies_str,
+        'Fiche': fiche_str
     }
     rows.append(row)
 

@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const headers = Object.keys(data[0]);
         const trHead = document.createElement('tr');
         headers.forEach(h => {
+            if (h === 'Détails produit') return; // On ne veut plus de cette colonne
             const th = document.createElement('th');
             th.textContent = h;
             if (h === 'DCI') th.style.textAlign = 'center';
@@ -39,34 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(row => {
             const tr = document.createElement('tr');
             headers.forEach(h => {
+                if (h === 'Détails produit' || h === 'Fiche') return; // On saute ces données ici
+
                 const td = document.createElement('td');
                 let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
-                // Affichage des listes à puces et retours à la ligne
-                if (h === 'Détails produit' && val.includes('Produit')) {
-                    // Séparer par double saut de ligne pour chaque produit
-                    const produits = val.split(/\n\n|\r\n\r\n/);
-                    produits.forEach(prod => {
-                        // Surligner la ligne 'Produit X :'
-                        const lines = prod.split(/\n|\r\n/);
-                        lines.forEach((line, idx) => {
-                            const div = document.createElement('div');
-                            if (/^\s*Produit \d+\s*:/i.test(line)) {
-                                div.textContent = line.trim();
-                                div.style.background = '#f0f0f0';
-                                div.style.fontWeight = 'bold';
-                                div.style.padding = '2px 8px';
-                                div.style.margin = '6px 0 2px 0';
-                                div.style.borderRadius = '6px';
-                            } else if (line.trim().startsWith('•')) {
-                                div.textContent = line.trim();
-                                div.style.marginLeft = '18px';
-                            } else {
-                                div.textContent = line.trim();
-                            }
-                            td.appendChild(div);
-                        });
-                    });
-                } else if (h === 'Indications' && val.includes('•')) {
+
+                if (h === 'Indications' && val.includes('•')) {
                     // On sépare chaque puce et on crée une liste colorée
                     const items = val.split('\n').map(x => x.trim()).filter(Boolean);
                     const ul = document.createElement('ul');
@@ -111,9 +90,88 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Sinon, on gère les retours à la ligne simples
                     td.innerHTML = val.replace(/\n/g, '<br>');
                 }
+
                 if (h === 'DCI') {
                     td.style.textAlign = 'center';
                     td.style.verticalAlign = 'middle';
+                    // Surlignage selon la famille de molécule
+                    const famille = row['Famille de molécule'] ? row['Famille de molécule'].toLowerCase() : '';
+                    if (famille === 'hors taa') {
+                        td.style.background = '#fff59d'; // jaune clair
+                    } else if (famille === 'anti infectieux') {
+                        td.style.background = '#b9f6ca'; // vert clair
+                    }
+                    // Le nom de la DCI est déjà dans le td.innerHTML
+                    // On crée un conteneur pour les boutons en dessous
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'btn-container';
+
+                    // Ajout du bouton 'Produits' si des détails existent
+                    const detailsProduit = row['Détails produit'];
+                    const fiche = row['Fiche'];
+                    if (detailsProduit && detailsProduit.trim() !== '') {
+                        const productBtn = document.createElement('button');
+                        productBtn.textContent = 'Produits';
+                        productBtn.className = 'product-btn';
+                        productBtn.onclick = () => {
+                            const productBody = document.getElementById('product-body');
+                            const productModal = document.getElementById('product-modal');
+                            productBody.innerHTML = '';
+                            // On retire uniquement le contenu exact de la fiche du détail produit
+                            let produits = detailsProduit;
+                            if (fiche && fiche.trim() !== '') {
+                                // On retire la fiche si elle est présente dans le détail produit
+                                produits = produits.replace(fiche, '');
+                            }
+                            produits.split(/\n\n|\r\n\r\n/).forEach(prod => {
+                                const lines = prod.split(/\n|\r\n/);
+                                lines.forEach((line) => {
+                                    // On ignore toute ligne qui commence par '• Fiche :' (avec ou sans espaces)
+                                    if (/^•?\s*Fiche\s*:/i.test(line.trim())) return;
+                                    const div = document.createElement('div');
+                                    if (/^\s*Produit \d+\s*:/i.test(line)) {
+                                        div.textContent = line.trim();
+                                        div.style.background = '#f0f0f0';
+                                        div.style.fontWeight = 'bold';
+                                        div.style.padding = '2px 8px';
+                                        div.style.margin = '6px 0 2px 0';
+                                        div.style.borderRadius = '6px';
+                                    } else if (line.trim().startsWith('•')) {
+                                        div.textContent = line.trim();
+                                        div.style.marginLeft = '18px';
+                                    } else {
+                                        div.textContent = line.trim();
+                                    }
+                                    if (div.textContent.trim() !== '') productBody.appendChild(div);
+                                });
+                            });
+                            productModal.classList.remove('hidden');
+                        };
+                        btnContainer.appendChild(productBtn);
+                    }
+                    
+                    // Ajout du bouton 'Fiche' si une fiche existe
+                    if (fiche && fiche.trim() !== '') {
+                        const ficheBtn = document.createElement('button');
+                        ficheBtn.textContent = 'Fiche';
+                        ficheBtn.className = 'fiche-btn';
+                        ficheBtn.onclick = () => {
+                            const ficheBody = document.getElementById('fiche-body');
+                            const ficheModal = document.getElementById('fiche-modal');
+                            // On transforme les liens en hyperliens cliquables
+                            let ficheHtml = fiche.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+                            ficheHtml = ficheHtml.replace(/(C:[^\s]+)/g, function(match) {
+                                return `<a href="file:///${match.replace(/\\/g, '/')}", target="_blank">${match}</a>`;
+                            });
+                            ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
+                            ficheModal.classList.remove('hidden');
+                        };
+                        btnContainer.appendChild(ficheBtn);
+                    }
+
+                    if (btnContainer.hasChildNodes()) {
+                        td.appendChild(btnContainer);
+                    }
                 }
                 tr.appendChild(td);
             });
@@ -131,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<div class="loader">Aucune donnée à afficher ou données manquantes.</div>';
     }
 
-    // Ajout modal info
+    // Gestion de la modale info
     const infoBtn = document.getElementById('info-btn');
     const infoModal = document.getElementById('info-modal');
     const closeModal = document.getElementById('close-modal');
@@ -159,6 +217,22 @@ document.addEventListener('DOMContentLoaded', () => {
         infoModal.onclick = (e) => { if (e.target === infoModal) infoModal.classList.add('hidden'); };
     }
 
+    // Gestion de la modale produits
+    const productModal = document.getElementById('product-modal');
+    const closeProductModal = document.getElementById('close-product-modal');
+    if (productModal && closeProductModal) {
+        closeProductModal.onclick = () => productModal.classList.add('hidden');
+        productModal.onclick = (e) => { if (e.target === productModal) productModal.classList.add('hidden'); };
+    }
+
+    // Gestion de la modale fiche
+    const ficheModal = document.getElementById('fiche-modal');
+    const closeFicheModal = document.getElementById('close-fiche-modal');
+    if (ficheModal && closeFicheModal) {
+        closeFicheModal.onclick = () => ficheModal.classList.add('hidden');
+        ficheModal.onclick = (e) => { if (e.target === ficheModal) ficheModal.classList.add('hidden'); };
+    }
+
     // Gestion de la fenêtre de recherche (modal)
     const searchBtn = document.getElementById('search-btn');
     const searchModal = document.getElementById('search-modal');
@@ -173,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variables pour mémoriser les derniers filtres appliqués
     let lastDciVal = '';
     let lastIndVal = '';
+    let lastFamilleVal = '';
     let lastRembChecked = ['AMM', 'Hors AMM', 'Groupe 3', 'Liste en sus'];
 
     if (searchBtn && searchModal && closeSearchModal && searchBody && allData) {
@@ -190,6 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             const indicationsList = Array.from(indicationsSet).sort((a, b) => a.localeCompare(b, 'fr', {sensitivity:'base'}));
+            // Générer la liste des familles de molécule uniques
+            const familleSet = new Set(allData.map(row => row['Famille de molécule'] || '').filter(Boolean));
+            const familleList = Array.from(familleSet).sort((a, b) => a.localeCompare(b, 'fr', {sensitivity:'base'}));
             // Générer le formulaire avec valeurs mémorisées
             searchBody.innerHTML = `
                 <label for='dci-select'><b>Filtrer par DCI :</b></label><br>
@@ -203,6 +281,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <datalist id='indication-datalist'>
                     ${indicationsList.map(ind => `<option value="${ind}">`).join('')}
                 </datalist>
+                <br>
+                <label for='famille-select'><b>Filtrer par famille de molécule :</b></label><br>
+                <select id='famille-select' style='width:90%;margin-bottom:12px;padding:6px;'>
+                    <option value=''>Toutes</option>
+                    ${familleList.map(fam => `<option value="${fam}"${lastFamilleVal === fam ? ' selected' : ''}>${fam}</option>`).join('')}
+                </select>
                 <br>
                 <b>Filtrer les indications par remboursement :</b><br>
                 <label><input type='checkbox' class='remb-filter' value='AMM' ${lastRembChecked.includes('AMM') ? 'checked' : ''}> AMM</label>
@@ -222,10 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target && e.target.id === 'apply-search') {
                 const dciVal = document.getElementById('dci-select').value.trim();
                 const indVal = document.getElementById('indication-select').value.trim();
+                const familleVal = document.getElementById('famille-select').value.trim();
                 const rembChecked = Array.from(document.querySelectorAll('.remb-filter:checked')).map(cb => cb.value);
                 // Mémoriser les derniers filtres
                 lastDciVal = dciVal;
                 lastIndVal = indVal;
+                lastFamilleVal = familleVal;
                 lastRembChecked = rembChecked.length ? rembChecked : [];
                 // Filtrage
                 let filtered = allData;
@@ -233,7 +319,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dciVal) {
                     filtered = filtered.filter(row => (row.DCI || '').toLowerCase() === dciVal.toLowerCase());
                 }
-                // 2. Filtre indication + remboursement
+                // 2. Filtre famille
+                if (familleVal) {
+                    filtered = filtered.filter(row => (row['Famille de molécule'] || '').toLowerCase() === familleVal.toLowerCase());
+                }
+                // 3. Filtre indication + remboursement
                 filtered = filtered.map(row => {
                     let newRow = {...row};
                     if (row.Indications && typeof row.Indications === 'string') {
@@ -259,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return newRow;
                 })
-                // 3. On ne garde que les lignes où il reste au moins une indication si un filtre indication/remb est actif
+                // 4. On ne garde que les lignes où il reste au moins une indication si un filtre indication/remb est actif
                 .filter(row => {
                     if ((indVal || rembChecked.length < 4) && row.Indications !== undefined) {
                         return row.Indications && row.Indications.trim() !== '';
@@ -272,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target && e.target.id === 'reset-search') {
                 lastDciVal = '';
                 lastIndVal = '';
+                lastFamilleVal = '';
                 lastRembChecked = ['AMM', 'Hors AMM', 'Groupe 3', 'Liste en sus'];
                 renderTable(allData, lastUpdate);
                 searchModal.classList.add('hidden');
@@ -290,6 +381,7 @@ function renderTable(data, lastUpdate) {
     const headers = Object.keys(data[0]);
     const trHead = document.createElement('tr');
     headers.forEach(h => {
+        if (h === 'Détails produit') return; // On ne veut plus de cette colonne
         const th = document.createElement('th');
         th.textContent = h;
         if (h === 'DCI') th.style.textAlign = 'center';
@@ -300,34 +392,12 @@ function renderTable(data, lastUpdate) {
     data.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(h => {
+            if (h === 'Détails produit' || h === 'Fiche') return; // On saute ces données ici
+
             const td = document.createElement('td');
             let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
-            // Affichage des listes à puces et retours à la ligne
-            if (h === 'Détails produit' && val.includes('Produit')) {
-                // Séparer par double saut de ligne pour chaque produit
-                const produits = val.split(/\n\n|\r\n\r\n/);
-                produits.forEach(prod => {
-                    // Surligner la ligne 'Produit X :'
-                    const lines = prod.split(/\n|\r\n/);
-                    lines.forEach((line, idx) => {
-                        const div = document.createElement('div');
-                        if (/^\s*Produit \d+\s*:/i.test(line)) {
-                            div.textContent = line.trim();
-                            div.style.background = '#f0f0f0';
-                            div.style.fontWeight = 'bold';
-                            div.style.padding = '2px 8px';
-                            div.style.margin = '6px 0 2px 0';
-                            div.style.borderRadius = '6px';
-                        } else if (line.trim().startsWith('•')) {
-                            div.textContent = line.trim();
-                            div.style.marginLeft = '18px';
-                        } else {
-                            div.textContent = line.trim();
-                        }
-                        td.appendChild(div);
-                    });
-                });
-            } else if (h === 'Indications' && val.includes('•')) {
+
+            if (h === 'Indications' && val.includes('•')) {
                 // On sépare chaque puce et on crée une liste colorée
                 const items = val.split('\n').map(x => x.trim()).filter(Boolean);
                 const ul = document.createElement('ul');
@@ -372,9 +442,88 @@ function renderTable(data, lastUpdate) {
                 // Sinon, on gère les retours à la ligne simples
                 td.innerHTML = val.replace(/\n/g, '<br>');
             }
+
             if (h === 'DCI') {
                 td.style.textAlign = 'center';
                 td.style.verticalAlign = 'middle';
+                // Surlignage selon la famille de molécule
+                const famille = row['Famille de molécule'] ? row['Famille de molécule'].toLowerCase() : '';
+                if (famille === 'hors taa') {
+                    td.style.background = '#fff59d'; // jaune clair
+                } else if (famille === 'anti infectieux') {
+                    td.style.background = '#b9f6ca'; // vert clair
+                }
+                // Le nom de la DCI est déjà dans le td.innerHTML
+                // On crée un conteneur pour les boutons en dessous
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'btn-container';
+
+                // Ajout du bouton 'Produits' si des détails existent
+                const detailsProduit = row['Détails produit'];
+                const fiche = row['Fiche'];
+                if (detailsProduit && detailsProduit.trim() !== '') {
+                    const productBtn = document.createElement('button');
+                    productBtn.textContent = 'Produits';
+                    productBtn.className = 'product-btn';
+                    productBtn.onclick = () => {
+                        const productBody = document.getElementById('product-body');
+                        const productModal = document.getElementById('product-modal');
+                        productBody.innerHTML = '';
+                        // On retire uniquement le contenu exact de la fiche du détail produit
+                        let produits = detailsProduit;
+                        if (fiche && fiche.trim() !== '') {
+                            // On retire la fiche si elle est présente dans le détail produit
+                            produits = produits.replace(fiche, '');
+                        }
+                        produits.split(/\n\n|\r\n\r\n/).forEach(prod => {
+                            const lines = prod.split(/\n|\r\n/);
+                            lines.forEach((line) => {
+                                // On ignore toute ligne qui commence par '• Fiche :' (avec ou sans espaces)
+                                if (/^•?\s*Fiche\s*:/i.test(line.trim())) return;
+                                const div = document.createElement('div');
+                                if (/^\s*Produit \d+\s*:/i.test(line)) {
+                                    div.textContent = line.trim();
+                                    div.style.background = '#f0f0f0';
+                                    div.style.fontWeight = 'bold';
+                                    div.style.padding = '2px 8px';
+                                    div.style.margin = '6px 0 2px 0';
+                                    div.style.borderRadius = '6px';
+                                } else if (line.trim().startsWith('•')) {
+                                    div.textContent = line.trim();
+                                    div.style.marginLeft = '18px';
+                                } else {
+                                    div.textContent = line.trim();
+                                }
+                                if (div.textContent.trim() !== '') productBody.appendChild(div);
+                            });
+                        });
+                        productModal.classList.remove('hidden');
+                    };
+                    btnContainer.appendChild(productBtn);
+                }
+                
+                // Ajout du bouton 'Fiche' si une fiche existe
+                if (fiche && fiche.trim() !== '') {
+                    const ficheBtn = document.createElement('button');
+                    ficheBtn.textContent = 'Fiche';
+                    ficheBtn.className = 'fiche-btn';
+                    ficheBtn.onclick = () => {
+                        const ficheBody = document.getElementById('fiche-body');
+                        const ficheModal = document.getElementById('fiche-modal');
+                        // On transforme les liens en hyperliens cliquables
+                        let ficheHtml = fiche.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+                        ficheHtml = ficheHtml.replace(/(C:[^\s]+)/g, function(match) {
+                            return `<a href="file:///${match.replace(/\\/g, '/')}", target="_blank">${match}</a>`;
+                        });
+                        ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
+                        ficheModal.classList.remove('hidden');
+                    };
+                    btnContainer.appendChild(ficheBtn);
+                }
+
+                if (btnContainer.hasChildNodes()) {
+                    td.appendChild(btnContainer);
+                }
             }
             tr.appendChild(td);
         });
