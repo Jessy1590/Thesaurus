@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const headers = Object.keys(data[0]);
         const trHead = document.createElement('tr');
         headers.forEach(h => {
-            if (h === 'Détails produit') return; // On ne veut plus de cette colonne
+            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On ne veut plus de ces colonnes
             const th = document.createElement('th');
             th.textContent = h;
             if (h === 'DCI') th.style.textAlign = 'center';
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(row => {
             const tr = document.createElement('tr');
             headers.forEach(h => {
-                if (h === 'Détails produit' || h === 'Fiche') return; // On saute ces données ici
+                if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On saute ces données ici
 
                 const td = document.createElement('td');
                 let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
@@ -381,7 +381,7 @@ function renderTable(data, lastUpdate) {
     const headers = Object.keys(data[0]);
     const trHead = document.createElement('tr');
     headers.forEach(h => {
-        if (h === 'Détails produit') return; // On ne veut plus de cette colonne
+        if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On ne veut plus de ces colonnes
         const th = document.createElement('th');
         th.textContent = h;
         if (h === 'DCI') th.style.textAlign = 'center';
@@ -392,7 +392,7 @@ function renderTable(data, lastUpdate) {
     data.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(h => {
-            if (h === 'Détails produit' || h === 'Fiche') return; // On saute ces données ici
+            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On saute ces données ici
 
             const td = document.createElement('td');
             let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
