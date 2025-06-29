@@ -8,10 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     legendContainer.innerHTML = `
         <div style="margin-top:32px; font-size:1.05em;">
             <b>Légende couleurs indications :</b><br>
-            <span style="color:#fff; background:#4caf50; padding:2px 8px; border-radius:6px;">AMM</span> : Autorisation de Mise sur le Marché<br>
-            <span style="color:#fff; background:#e53935; padding:2px 8px; border-radius:6px;">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
-            <span style="color:#fff; background:#1976d2; padding:2px 8px; border-radius:6px;">Groupe 3</span> : Groupe 3<br>
-            <span style="color:#000; background:#ffe082; padding:2px 8px; border-radius:6px;">Liste en sus</span> : Liste en sus
+            <span style="color:#fff; background:#43b581; padding:2px 8px; border-radius:6px;">AMM</span> : Autorisation de Mise sur le Marché<br>
+            <span style="color:#fff; background:#e74c3c; padding:2px 8px; border-radius:6px;">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
+            <span style="color:#fff; background:#5c6bc0; padding:2px 8px; border-radius:6px;">Groupe 3</span> : Groupe 3<br>
+            <span style="color:#222; background:#fbc02d; padding:2px 8px; border-radius:6px;">Liste en sus</span> : Liste en sus<br>
+            <span style="color:#fff; background:#00bcd4; padding:2px 8px; border-radius:6px;">Famille : Anti Infectieux</span><br>
+            <span style="color:#fff; background:#8d6e63; padding:2px 8px; border-radius:6px;">Famille : Hors TAA</span>
         </div>
     `;
     const majContainer = document.createElement('div');
@@ -29,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const headers = Object.keys(data[0]);
         const trHead = document.createElement('tr');
         headers.forEach(h => {
-            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On ne veut plus de ces colonnes
+            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche' || h === 'Indications_Data') return; // On ne veut plus de ces colonnes
             const th = document.createElement('th');
             th.textContent = h;
             if (h === 'DCI') th.style.textAlign = 'center';
@@ -40,28 +42,33 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(row => {
             const tr = document.createElement('tr');
             headers.forEach(h => {
-                if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On saute ces données ici
+                if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche' || h === 'Indications_Data') return; // On saute ces données ici
 
                 const td = document.createElement('td');
                 let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
 
-                if (h === 'Indications' && val.includes('•')) {
-                    // On sépare chaque puce et on crée une liste colorée
+                if (h === 'Indications' && val.includes('(')) {
+                    // On sépare chaque indication et on crée une liste colorée
                     const items = val.split('\n').map(x => x.trim()).filter(Boolean);
                     const ul = document.createElement('ul');
                     ul.style.margin = '0';
                     ul.style.paddingLeft = '1.2em';
-                    items.forEach(item => {
+                    ul.style.listStyleType = 'none';
+                    
+                    // Récupérer les données détaillées des indications pour les posologies
+                    const indicationsData = row['Indications_Data'] || [];
+                    
+                    items.forEach((item, index) => {
                         const li = document.createElement('li');
                         // Chercher le remboursement entre parenthèses
                         const match = item.match(/\(([^)]+)\)$/i);
                         let color = '';
                         if (match) {
                             const rem = match[1].toLowerCase();
-                            if (rem.includes('amm')) color = '#4caf50';
-                            if (rem.includes('hors amm')) color = '#e53935';
-                            if (rem.includes('groupe 3')) color = '#1976d2';
-                            if (rem.includes('liste en sus')) color = '#ffe082';
+                            if (rem === 'amm') color = '#43b581';
+                            if (rem === 'hors amm') color = '#e74c3c';
+                            if (rem === 'groupe 3') color = '#5c6bc0';
+                            if (rem === 'liste en sus') color = '#fbc02d';
                         }
                         if (color) {
                             li.style.background = color;
@@ -70,7 +77,41 @@ document.addEventListener('DOMContentLoaded', () => {
                             li.style.marginBottom = '2px';
                             li.style.color = (color === '#ffe082') ? '#000' : '#fff';
                         }
-                        li.textContent = item.replace(/^•\s*/, '');
+                        
+                        // Créer un conteneur pour l'indication et le bouton posologie
+                        const indicationContainer = document.createElement('span');
+                        indicationContainer.textContent = item;
+                        
+                        // Ajouter le bouton posologie si une posologie existe pour cette indication
+                        if (indicationsData[index] && indicationsData[index].posologie && indicationsData[index].posologie.trim() !== '') {
+                            const posologieBtn = document.createElement('button');
+                            posologieBtn.textContent = 'Poso';
+                            posologieBtn.className = 'posologie-btn action-btn';
+                            posologieBtn.title = 'Voir la posologie';
+                            posologieBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                const posologieBody = document.getElementById('posologie-body');
+                                const posologieModal = document.getElementById('posologie-modal');
+                                posologieBody.innerHTML = '';
+                                
+                                const indicationData = indicationsData[index];
+                                const indicationDiv = document.createElement('div');
+                                indicationDiv.style.fontWeight = 'bold';
+                                indicationDiv.style.marginBottom = '10px';
+                                indicationDiv.style.color = '#333';
+                                indicationDiv.textContent = indicationData.indication;
+                                posologieBody.appendChild(indicationDiv);
+                                
+                                const posologieDiv = document.createElement('div');
+                                posologieDiv.innerHTML = indicationData.posologie.replace(/\n/g, '<br>');
+                                posologieBody.appendChild(posologieDiv);
+                                
+                                posologieModal.classList.remove('hidden');
+                            };
+                            indicationContainer.appendChild(posologieBtn);
+                        }
+                        
+                        li.appendChild(indicationContainer);
                         ul.appendChild(li);
                     });
                     td.appendChild(ul);
@@ -97,14 +138,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Surlignage selon la famille de molécule
                     const famille = row['Famille de molécule'] ? row['Famille de molécule'].toLowerCase() : '';
                     if (famille === 'hors taa') {
-                        td.style.background = '#fff59d'; // jaune clair
+                        td.style.background = '#8d6e63';
+                        td.style.color = '#fff';
                     } else if (famille === 'anti infectieux') {
-                        td.style.background = '#b9f6ca'; // vert clair
+                        td.style.background = '#00bcd4';
+                        td.style.color = '#fff';
                     }
                     // Le nom de la DCI est déjà dans le td.innerHTML
                     // On crée un conteneur pour les boutons en dessous
                     const btnContainer = document.createElement('div');
                     btnContainer.className = 'btn-container';
+                    btnContainer.style.marginTop = '10px';
 
                     // Ajout du bouton 'Produits' si des détails existent
                     const detailsProduit = row['Détails produit'];
@@ -112,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (detailsProduit && detailsProduit.trim() !== '') {
                         const productBtn = document.createElement('button');
                         productBtn.textContent = 'Produits';
-                        productBtn.className = 'product-btn';
+                        productBtn.className = 'product-btn action-btn';
                         productBtn.onclick = () => {
                             const productBody = document.getElementById('product-body');
                             const productModal = document.getElementById('product-modal');
@@ -154,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (fiche && fiche.trim() !== '') {
                         const ficheBtn = document.createElement('button');
                         ficheBtn.textContent = 'Fiche';
-                        ficheBtn.className = 'fiche-btn';
+                        ficheBtn.className = 'fiche-btn action-btn';
                         ficheBtn.onclick = () => {
                             const ficheBody = document.getElementById('fiche-body');
                             const ficheModal = document.getElementById('fiche-modal');
@@ -189,32 +233,36 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<div class="loader">Aucune donnée à afficher ou données manquantes.</div>';
     }
 
-    // Gestion de la modale info
+    // Gestion exclusive des modales info/recherche
     const infoBtn = document.getElementById('info-btn');
     const infoModal = document.getElementById('info-modal');
     const closeModal = document.getElementById('close-modal');
-    const modalBody = document.getElementById('modal-body');
-    if (infoBtn && infoModal && closeModal && modalBody) {
-        infoBtn.onclick = () => {
-            // Générer le contenu de la modale (légende + date MAJ)
-            let legend = `
-                <div style=\"font-size:1.08em;\">
-                    <b>Légende couleurs indications :</b><br>
-                    <span style=\"color:#fff; background:#4caf50; padding:2px 8px; border-radius:6px;\">AMM</span> : Autorisation de Mise sur le Marché<br>
-                    <span style=\"color:#fff; background:#e53935; padding:2px 8px; border-radius:6px;\">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
-                    <span style=\"color:#fff; background:#1976d2; padding:2px 8px; border-radius:6px;\">Groupe 3</span> : Groupe 3<br>
-                    <span style=\"color:#000; background:#ffe082; padding:2px 8px; border-radius:6px;\">Liste en sus</span> : Liste en sus
-                </div>
-            `;
-            let maj = '';
-            if (window.dataFromPython && window.dataFromPython.lastUpdate) {
-                maj = `<div style=\"margin-top:18px;\"><b>Dernière mise à jour du tableau :</b> ${window.dataFromPython.lastUpdate}</div>`;
-            }
-            modalBody.innerHTML = legend + maj;
+    const searchBtn = document.getElementById('search-btn');
+    const searchModal = document.getElementById('search-modal');
+    const closeSearchModal = document.getElementById('close-search-modal');
+
+    if (infoBtn && infoModal && closeModal && searchBtn && searchModal && closeSearchModal) {
+        infoBtn.onclick = function() {
+            // Fermer la modale recherche si ouverte
+            if (!searchModal.classList.contains('hidden')) searchModal.classList.add('hidden');
             infoModal.classList.remove('hidden');
+            // Injecter la date de mise à jour si disponible
+            if (window.dataFromPython && window.dataFromPython.lastUpdate) {
+                const majDiv = document.getElementById('maj-info');
+                if (majDiv) majDiv.innerHTML = `<b>Dernière mise à jour du tableau :</b> ${window.dataFromPython.lastUpdate}`;
+            }
         };
-        closeModal.onclick = () => infoModal.classList.add('hidden');
-        infoModal.onclick = (e) => { if (e.target === infoModal) infoModal.classList.add('hidden'); };
+        closeModal.onclick = function() {
+            infoModal.classList.add('hidden');
+        };
+        searchBtn.onclick = function() {
+            // Fermer la modale info si ouverte
+            if (!infoModal.classList.contains('hidden')) infoModal.classList.add('hidden');
+            searchModal.classList.remove('hidden');
+        };
+        closeSearchModal.onclick = function() {
+            searchModal.classList.add('hidden');
+        };
     }
 
     // Gestion de la modale produits
@@ -233,10 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ficheModal.onclick = (e) => { if (e.target === ficheModal) ficheModal.classList.add('hidden'); };
     }
 
+    // Gestion de la modale posologie
+    const posologieModal = document.getElementById('posologie-modal');
+    const closePosologieModal = document.getElementById('close-posologie-modal');
+    if (posologieModal && closePosologieModal) {
+        closePosologieModal.onclick = () => posologieModal.classList.add('hidden');
+        posologieModal.onclick = (e) => { if (e.target === posologieModal) posologieModal.classList.add('hidden'); };
+    }
+
     // Gestion de la fenêtre de recherche (modal)
-    const searchBtn = document.getElementById('search-btn');
-    const searchModal = document.getElementById('search-modal');
-    const closeSearchModal = document.getElementById('close-search-modal');
     const searchBody = document.getElementById('search-body');
     let allData = null;
     let lastUpdate = '';
@@ -340,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const match = item.match(/\(([^)]+)\)$/i);
                             if (match) {
                                 const rem = match[1].toLowerCase();
-                                if (!rembChecked.some(val => rem && rem.includes(val.toLowerCase()))) return false;
+                                if (!rembChecked.some(val => rem && rem === val.toLowerCase())) return false;
                             } else if (!keep) {
                                 return false;
                             }
@@ -381,7 +434,7 @@ function renderTable(data, lastUpdate) {
     const headers = Object.keys(data[0]);
     const trHead = document.createElement('tr');
     headers.forEach(h => {
-        if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On ne veut plus de ces colonnes
+        if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche' || h === 'Indications_Data') return; // On saute ces données ici
         const th = document.createElement('th');
         th.textContent = h;
         if (h === 'DCI') th.style.textAlign = 'center';
@@ -392,28 +445,32 @@ function renderTable(data, lastUpdate) {
     data.forEach(row => {
         const tr = document.createElement('tr');
         headers.forEach(h => {
-            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche') return; // On saute ces données ici
+            if (h === 'Détails produit' || h === 'Famille de molécule' || h === 'Fiche' || h === 'Indications_Data') return; // On saute ces données ici
 
             const td = document.createElement('td');
             let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
 
-            if (h === 'Indications' && val.includes('•')) {
-                // On sépare chaque puce et on crée une liste colorée
+            if (h === 'Indications' && val.includes('(')) {
+                // On sépare chaque indication et on crée une liste colorée
                 const items = val.split('\n').map(x => x.trim()).filter(Boolean);
                 const ul = document.createElement('ul');
                 ul.style.margin = '0';
                 ul.style.paddingLeft = '1.2em';
-                items.forEach(item => {
+                
+                // Récupérer les données détaillées des indications pour les posologies
+                const indicationsData = row['Indications_Data'] || [];
+                
+                items.forEach((item, index) => {
                     const li = document.createElement('li');
                     // Chercher le remboursement entre parenthèses
                     const match = item.match(/\(([^)]+)\)$/i);
                     let color = '';
                     if (match) {
                         const rem = match[1].toLowerCase();
-                        if (rem.includes('amm')) color = '#4caf50';
-                        if (rem.includes('hors amm')) color = '#e53935';
-                        if (rem.includes('groupe 3')) color = '#1976d2';
-                        if (rem.includes('liste en sus')) color = '#ffe082';
+                        if (rem === 'amm') color = '#43b581';
+                        if (rem === 'hors amm') color = '#e74c3c';
+                        if (rem === 'groupe 3') color = '#5c6bc0';
+                        if (rem === 'liste en sus') color = '#fbc02d';
                     }
                     if (color) {
                         li.style.background = color;
@@ -422,7 +479,41 @@ function renderTable(data, lastUpdate) {
                         li.style.marginBottom = '2px';
                         li.style.color = (color === '#ffe082') ? '#000' : '#fff';
                     }
-                    li.textContent = item.replace(/^•\s*/, '');
+                    
+                    // Créer un conteneur pour l'indication et le bouton posologie
+                    const indicationContainer = document.createElement('span');
+                    indicationContainer.textContent = item;
+                    
+                    // Ajouter le bouton posologie si une posologie existe pour cette indication
+                    if (indicationsData[index] && indicationsData[index].posologie && indicationsData[index].posologie.trim() !== '') {
+                        const posologieBtn = document.createElement('button');
+                        posologieBtn.textContent = 'Poso';
+                        posologieBtn.className = 'posologie-btn action-btn';
+                        posologieBtn.title = 'Voir la posologie';
+                        posologieBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            const posologieBody = document.getElementById('posologie-body');
+                            const posologieModal = document.getElementById('posologie-modal');
+                            posologieBody.innerHTML = '';
+                            
+                            const indicationData = indicationsData[index];
+                            const indicationDiv = document.createElement('div');
+                            indicationDiv.style.fontWeight = 'bold';
+                            indicationDiv.style.marginBottom = '10px';
+                            indicationDiv.style.color = '#333';
+                            indicationDiv.textContent = indicationData.indication;
+                            posologieBody.appendChild(indicationDiv);
+                            
+                            const posologieDiv = document.createElement('div');
+                            posologieDiv.innerHTML = indicationData.posologie.replace(/\n/g, '<br>');
+                            posologieBody.appendChild(posologieDiv);
+                            
+                            posologieModal.classList.remove('hidden');
+                        };
+                        indicationContainer.appendChild(posologieBtn);
+                    }
+                    
+                    li.appendChild(indicationContainer);
                     ul.appendChild(li);
                 });
                 td.appendChild(ul);
@@ -449,14 +540,17 @@ function renderTable(data, lastUpdate) {
                 // Surlignage selon la famille de molécule
                 const famille = row['Famille de molécule'] ? row['Famille de molécule'].toLowerCase() : '';
                 if (famille === 'hors taa') {
-                    td.style.background = '#fff59d'; // jaune clair
+                    td.style.background = '#8d6e63';
+                    td.style.color = '#fff';
                 } else if (famille === 'anti infectieux') {
-                    td.style.background = '#b9f6ca'; // vert clair
+                    td.style.background = '#00bcd4';
+                    td.style.color = '#fff';
                 }
                 // Le nom de la DCI est déjà dans le td.innerHTML
                 // On crée un conteneur pour les boutons en dessous
                 const btnContainer = document.createElement('div');
                 btnContainer.className = 'btn-container';
+                btnContainer.style.marginTop = '10px';
 
                 // Ajout du bouton 'Produits' si des détails existent
                 const detailsProduit = row['Détails produit'];
@@ -464,7 +558,7 @@ function renderTable(data, lastUpdate) {
                 if (detailsProduit && detailsProduit.trim() !== '') {
                     const productBtn = document.createElement('button');
                     productBtn.textContent = 'Produits';
-                    productBtn.className = 'product-btn';
+                    productBtn.className = 'product-btn action-btn';
                     productBtn.onclick = () => {
                         const productBody = document.getElementById('product-body');
                         const productModal = document.getElementById('product-modal');
@@ -506,7 +600,7 @@ function renderTable(data, lastUpdate) {
                 if (fiche && fiche.trim() !== '') {
                     const ficheBtn = document.createElement('button');
                     ficheBtn.textContent = 'Fiche';
-                    ficheBtn.className = 'fiche-btn';
+                    ficheBtn.className = 'fiche-btn action-btn';
                     ficheBtn.onclick = () => {
                         const ficheBody = document.getElementById('fiche-body');
                         const ficheModal = document.getElementById('fiche-modal');

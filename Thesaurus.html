@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thesaurus</title>
+    <link rel="stylesheet" href="script.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Thesaurus</h1>
+        <div id="table-container">
+            <div class="loader">Chargement du tableau...</div>
+        </div>
+        <!-- Boutons fixes en colonne en haut à droite -->
+        <div class="fixed-btns">
+            <button id="admin-btn" class="admin-btn" title="Administration" onclick="window.location.href='admin.html'">Admin</button>
+            <div id="info-btn" class="info-btn" title="Informations">Informations</div>
+            <div id="search-btn" class="search-btn" title="Recherche">Recherche</div>
+        </div>
+        <div id="info-modal" class="hidden">
+            <div class="modal-content">
+                <span id="close-modal">&times;</span>
+                <div id="modal-body">
+                    <b>Légende couleurs indications :</b><br>
+                    <span class="indication-badge amm">AMM</span> : Autorisation de Mise sur le Marché<br>
+                    <span class="indication-badge horsamm">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
+                    <span class="indication-badge groupe3">Groupe 3</span> : Groupe 3<br>
+                    <span class="indication-badge listeens">Liste en sus</span> : Liste en sus<br>
+                    <span class="indication-badge antiinf">Famille : Anti Infectieux</span><br>
+                    <span class="indication-badge horstaa">Famille : Hors TAA</span>
+                    <div style="margin-top:20px; font-size:1.08em;">
+                        <b>Boutons disponibles :</b><br>
+                        <span class="action-btn" style="pointer-events:none;">Produits</span> : Affiche les détails des produits disponibles pour cette DCI<br>
+                        <span class="action-btn" style="pointer-events:none;">Fiche</span> : Affiche la fiche technique ou les liens vers la documentation<br>
+                        <span class="action-btn" style="pointer-events:none;">Poso</span> : Affiche la posologie correspondante à l'indication (bouton à côté de chaque indication)
+                    </div>
+                    <div id="maj-info" style="margin-top:18px;"></div>
+                </div>
+            </div>
+        </div>
+        <div id="search-modal" class="hidden">
+            <div class="modal-content">
+                <span id="close-search-modal">&times;</span>
+                <div id="search-body"></div>
+            </div>
+        </div>
+        <div id="product-modal" class="hidden">
+            <div class="modal-content">
+                <span id="close-product-modal">&times;</span>
+                <div id="product-body"></div>
+            </div>
+        </div>
+        <div id="fiche-modal" class="hidden">
+            <div class="modal-content">
+                <span id="close-fiche-modal">&times;</span>
+                <div id="fiche-body"></div>
+            </div>
+        </div>
+        <div id="posologie-modal" class="hidden">
+            <div class="modal-content">
+                <span id="close-posologie-modal">&times;</span>
+                <div id="posologie-body"></div>
+            </div>
+        </div>
+    </div>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
