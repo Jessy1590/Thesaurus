@@ -17,7 +17,13 @@
         .remb-rtu { background: #ff7043; }
         .remb-groupe3 { background: #5c6bc0; }
         .remb-listeens { background: #fbc02d; color: #222; }
-        @media print { body { background: #fff; } }
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body { background: #fff; }
+        }
     </style>
 </head>
 <body>

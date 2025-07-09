@@ -468,6 +468,10 @@ tr:hover {
     background: #c5bc39;
 }
 @media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
     #print-btn, .legend, .maj, .action-btn, #info-btn, #search-btn, .btn-container, .modal-content, .hidden, .search-bar, .filtre-bar {
         display: none !important;
     }
