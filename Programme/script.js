@@ -5,17 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('table-container');
     const legendContainer = document.createElement('div');
     legendContainer.className = 'legend';
-    legendContainer.innerHTML = `
-        <div style="margin-top:32px; font-size:1.05em;">
-            <b>Légende couleurs indications :</b><br>
-            <span style="color:#fff; background:#43b581; padding:2px 8px; border-radius:6px;">AMM</span> : Autorisation de Mise sur le Marché<br>
-            <span style="color:#fff; background:#e74c3c; padding:2px 8px; border-radius:6px;">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
-            <span style="color:#fff; background:#5c6bc0; padding:2px 8px; border-radius:6px;">Groupe 3</span> : Groupe 3<br>
-            <span style="color:#222; background:#fbc02d; padding:2px 8px; border-radius:6px;">Liste en sus</span> : Liste en sus<br>
-            <span style="color:#fff; background:#00bcd4; padding:2px 8px; border-radius:6px;">Famille : Anti Infectieux</span><br>
-            <span style="color:#fff; background:#8d6e63; padding:2px 8px; border-radius:6px;">Famille : Hors TAA</span>
-        </div>
-    `;
+
     const majContainer = document.createElement('div');
     majContainer.className = 'maj';
     majContainer.style.marginTop = '18px';
@@ -47,43 +37,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 const td = document.createElement('td');
                 let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
 
-                if (h === 'Indications' && val.includes('(')) {
-                    // On sépare chaque indication et on crée une liste colorée
-                    const items = val.split('\n').map(x => x.trim()).filter(Boolean);
-                    const ul = document.createElement('ul');
-                    ul.style.margin = '0';
-                    ul.style.paddingLeft = '1.2em';
-                    ul.style.listStyleType = 'none';
-                    
-                    // Récupérer les données détaillées des indications pour les posologies
-                    const indicationsData = row['Indications_Data'] || [];
-                    
-                    items.forEach((item, index) => {
-                        const li = document.createElement('li');
-                        // Chercher le remboursement entre parenthèses
-                        const match = item.match(/\(([^)]+)\)$/i);
+                if (h === 'Indications' && Array.isArray(row['Indications_Data']) && row['Indications_Data'].length > 0) {
+                    // On affiche toutes les indications, mais le bouton poso seulement si la posologie existe
+                    const indicationsBlock = document.createElement('div');
+                    indicationsBlock.style.width = '100%';
+                    const indicationsData = row['Indications_Data'];
+                    indicationsData.forEach((indicationObj) => {
+                        const indDiv = document.createElement('div');
                         let color = '';
-                        if (match) {
-                            const rem = match[1].toLowerCase();
-                            if (rem === 'amm') color = '#43b581';
-                            if (rem === 'hors amm') color = '#e74c3c';
-                            if (rem === 'groupe 3') color = '#5c6bc0';
-                            if (rem === 'liste en sus') color = '#fbc02d';
-                        }
+                        const rem = (indicationObj.remboursement || '').toLowerCase();
+                        if (rem === 'amm') color = '#43b581';
+                        if (rem === 'hors amm') color = '#e74c3c';
+                        if (rem === 'amm non remboursé') color = '#a259d9';
+                        if (rem === 'rtu') color = '#ff7043';
+                        if (rem === 'groupe 3') color = '#5c6bc0';
+                        if (rem === 'liste en sus') color = '#fbc02d';
                         if (color) {
-                            li.style.background = color;
-                            li.style.borderRadius = '6px';
-                            li.style.padding = '2px 8px';
-                            li.style.marginBottom = '2px';
-                            li.style.color = (color === '#ffe082') ? '#000' : '#fff';
+                            indDiv.style.background = color;
+                            indDiv.style.borderRadius = '6px';
+                            indDiv.style.padding = '2px 8px';
+                            indDiv.style.marginBottom = '2px';
+                            indDiv.style.color = (color === '#ffe082') ? '#000' : '#fff';
+                            indDiv.style.width = '100%';
+                            indDiv.style.boxSizing = 'border-box';
                         }
-                        
-                        // Créer un conteneur pour l'indication et le bouton posologie
+                        // Texte indication + remboursement
+                        let indicationText = indicationObj.indication ? indicationObj.indication.trim() : '';
+                        if (rem) indicationText += ' (' + indicationObj.remboursement + ')';
                         const indicationContainer = document.createElement('span');
-                        indicationContainer.textContent = item;
-                        
-                        // Ajouter le bouton posologie si une posologie existe pour cette indication
-                        if (indicationsData[index] && indicationsData[index].posologie && indicationsData[index].posologie.trim() !== '') {
+                        indicationContainer.textContent = indicationText;
+                        // Bouton posologie si dispo
+                        if (indicationObj.posologie && indicationObj.posologie.trim() !== '') {
                             const posologieBtn = document.createElement('button');
                             posologieBtn.textContent = 'Poso';
                             posologieBtn.className = 'posologie-btn action-btn';
@@ -93,28 +77,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const posologieBody = document.getElementById('posologie-body');
                                 const posologieModal = document.getElementById('posologie-modal');
                                 posologieBody.innerHTML = '';
-                                
-                                const indicationData = indicationsData[index];
                                 const indicationDiv = document.createElement('div');
                                 indicationDiv.style.fontWeight = 'bold';
                                 indicationDiv.style.marginBottom = '10px';
                                 indicationDiv.style.color = '#333';
-                                indicationDiv.textContent = indicationData.indication;
+                                indicationDiv.textContent = indicationObj.indication;
                                 posologieBody.appendChild(indicationDiv);
-                                
                                 const posologieDiv = document.createElement('div');
-                                posologieDiv.innerHTML = indicationData.posologie.replace(/\n/g, '<br>');
+                                posologieDiv.innerHTML = indicationObj.posologie.replace(/\n/g, '<br>');
                                 posologieBody.appendChild(posologieDiv);
-                                
                                 posologieModal.classList.remove('hidden');
                             };
                             indicationContainer.appendChild(posologieBtn);
                         }
-                        
-                        li.appendChild(indicationContainer);
-                        ul.appendChild(li);
+                        indDiv.appendChild(indicationContainer);
+                        indicationsBlock.appendChild(indDiv);
                     });
-                    td.appendChild(ul);
+                    td.appendChild(indicationsBlock);
                 } else if (val.includes('•')) {
                     // Pour les autres listes à puces
                     const items = val.split('\n').map(x => x.trim()).filter(Boolean);
@@ -203,10 +182,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             const ficheBody = document.getElementById('fiche-body');
                             const ficheModal = document.getElementById('fiche-modal');
                             // On transforme les liens en hyperliens cliquables
-                            let ficheHtml = fiche.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-                            ficheHtml = ficheHtml.replace(/(C:[^\s]+)/g, function(match) {
-                                return `<a href="file:///${match.replace(/\\/g, '/')}", target="_blank">${match}</a>`;
-                            });
+                            let ficheHtml = fiche
+                                // Liens web d'abord
+                                .replace(/(https?:\/\/[^\s"']+)/gi, '<a href="$1" target="_blank">$1</a>')
+                                // Chemins UNC réseau (\\serveur\... ou //serveur/...) qui ne sont pas déjà dans un lien web
+                                .replace(/(^|[^\w:>])((?:\\\\|\/\/)[^\s"']+)/g, function(match, p1, p2) {
+                                    // On ne transforme pas si précédé de http(s):
+                                    if (/https?:$/.test(p1)) return match;
+                                    return p1 + `<a href="file:///${p2.replace(/\\/g, '/')}" target="_blank">${p2}</a>`;
+                                })
+                                // Chemins locaux de type X:\... ou X:/...
+                                .replace(/\b([A-Z]:[\\/][^\s"']+)/gi, function(match) {
+                                    return `<a href="file:///${match.replace(/\\/g, '/')}" target="_blank">${match}</a>`;
+                                });
                             ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
                             ficheModal.classList.remove('hidden');
                         };
@@ -232,6 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         container.innerHTML = '<div class="loader">Aucune donnée à afficher ou données manquantes.</div>';
     }
+
+    // Suppression de toute création dynamique du bouton Impression avancée
 
     // Gestion exclusive des modales info/recherche
     const infoBtn = document.getElementById('info-btn');
@@ -344,6 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <b>Filtrer les indications par remboursement :</b><br>
                 <label><input type='checkbox' class='remb-filter' value='AMM' ${lastRembChecked.includes('AMM') ? 'checked' : ''}> AMM</label>
                 <label><input type='checkbox' class='remb-filter' value='Hors AMM' ${lastRembChecked.includes('Hors AMM') ? 'checked' : ''}> Hors AMM</label>
+                <label><input type='checkbox' class='remb-filter' value='AMM non remboursé' ${lastRembChecked.includes('AMM non remboursé') ? 'checked' : ''}> AMM non remboursé</label>
+                <label><input type='checkbox' class='remb-filter' value='RTU' ${lastRembChecked.includes('RTU') ? 'checked' : ''}> RTU</label>
                 <label><input type='checkbox' class='remb-filter' value='Groupe 3' ${lastRembChecked.includes('Groupe 3') ? 'checked' : ''}> Groupe 3</label>
                 <label><input type='checkbox' class='remb-filter' value='Liste en sus' ${lastRembChecked.includes('Liste en sus') ? 'checked' : ''}> Liste en sus</label>
                 <br><br>
@@ -361,6 +353,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const indVal = document.getElementById('indication-select').value.trim();
                 const familleVal = document.getElementById('famille-select').value.trim();
                 const rembChecked = Array.from(document.querySelectorAll('.remb-filter:checked')).map(cb => cb.value);
+                // Correction : si aucun filtre n'est appliqué, on affiche tout
+                if (!dciVal && !indVal && !familleVal && rembChecked.length === 6) {
+                    renderTable(allData, lastUpdate);
+                    searchModal.classList.add('hidden');
+                    return;
+                }
                 // Mémoriser les derniers filtres
                 lastDciVal = dciVal;
                 lastIndVal = indVal;
@@ -400,15 +398,56 @@ document.addEventListener('DOMContentLoaded', () => {
                             return keep;
                         }).join('\n');
                     }
+                    // On filtre aussi Indications_Data si elle existe
+                    if (Array.isArray(row.Indications_Data)) {
+                        newRow.Indications_Data = row.Indications_Data.filter(indObj => {
+                            let keep = true;
+                            if (indVal && indObj.indication) {
+                                keep = indObj.indication.toLowerCase().includes(indVal.toLowerCase());
+                            }
+                            if (indObj.remboursement) {
+                                const rem = indObj.remboursement.toLowerCase();
+                                if (!rembChecked.some(val => rem && rem === val.toLowerCase())) return false;
+                            } else if (!keep) {
+                                return false;
+                            }
+                            return keep;
+                        });
+                    }
                     return newRow;
                 })
-                // 4. On ne garde que les lignes où il reste au moins une indication si un filtre indication/remb est actif
+                // 4. On ne garde que les lignes où il reste au moins une indication après filtrage
                 .filter(row => {
-                    if ((indVal || rembChecked.length < 4) && row.Indications !== undefined) {
+                    if ((indVal || rembChecked.length < 6) && row.Indications_Data !== undefined) {
+                        return Array.isArray(row.Indications_Data) && row.Indications_Data.length > 0;
+                    }
+                    if ((indVal || rembChecked.length < 6) && row.Indications !== undefined) {
                         return row.Indications && row.Indications.trim() !== '';
                     }
                     return true;
                 });
+                // Après le filtrage et juste avant renderTable(filtered, lastUpdate)
+                if (filtered.length === 0) {
+                    // Affiche le message à droite du bouton Réinitialiser
+                    let noResultMsg = document.getElementById('no-result-msg');
+                    if (!noResultMsg) {
+                        noResultMsg = document.createElement('span');
+                        noResultMsg.id = 'no-result-msg';
+                        noResultMsg.style.color = '#d32f2f';
+                        noResultMsg.style.fontWeight = 'bold';
+                        noResultMsg.style.marginLeft = '18px';
+                        noResultMsg.textContent = 'pas de résultat';
+                        const resetBtn = document.getElementById('reset-search');
+                        if (resetBtn) resetBtn.parentNode.insertBefore(noResultMsg, resetBtn.nextSibling);
+                    } else {
+                        noResultMsg.textContent = 'pas de résultat';
+                        noResultMsg.style.display = '';
+                    }
+                } else {
+                    // Cache le message si des résultats existent
+                    const noResultMsg = document.getElementById('no-result-msg');
+                    if (noResultMsg) noResultMsg.style.display = 'none';
+                }
                 renderTable(filtered, lastUpdate);
                 searchModal.classList.add('hidden');
             }
@@ -421,6 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchModal.classList.add('hidden');
             }
         };
+    }
+
+    const advancedPrintBtn = document.getElementById('advanced-print-btn');
+    if (advancedPrintBtn) {
+        advancedPrintBtn.onclick = () => window.open('imprimer.html', '_blank');
     }
 });
 
@@ -450,42 +494,37 @@ function renderTable(data, lastUpdate) {
             const td = document.createElement('td');
             let val = (row[h] !== undefined && row[h] !== null) ? String(row[h]) : '';
 
-            if (h === 'Indications' && val.includes('(')) {
-                // On sépare chaque indication et on crée une liste colorée
-                const items = val.split('\n').map(x => x.trim()).filter(Boolean);
-                const ul = document.createElement('ul');
-                ul.style.margin = '0';
-                ul.style.paddingLeft = '1.2em';
-                
-                // Récupérer les données détaillées des indications pour les posologies
-                const indicationsData = row['Indications_Data'] || [];
-                
-                items.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    // Chercher le remboursement entre parenthèses
-                    const match = item.match(/\(([^)]+)\)$/i);
+            if (h === 'Indications' && Array.isArray(row['Indications_Data']) && row['Indications_Data'].length > 0) {
+                // On affiche toutes les indications, mais le bouton poso seulement si la posologie existe
+                const indicationsBlock = document.createElement('div');
+                indicationsBlock.style.width = '100%';
+                const indicationsData = row['Indications_Data'];
+                indicationsData.forEach((indicationObj) => {
+                    const indDiv = document.createElement('div');
                     let color = '';
-                    if (match) {
-                        const rem = match[1].toLowerCase();
-                        if (rem === 'amm') color = '#43b581';
-                        if (rem === 'hors amm') color = '#e74c3c';
-                        if (rem === 'groupe 3') color = '#5c6bc0';
-                        if (rem === 'liste en sus') color = '#fbc02d';
-                    }
+                    const rem = (indicationObj.remboursement || '').toLowerCase();
+                    if (rem === 'amm') color = '#43b581';
+                    if (rem === 'hors amm') color = '#e74c3c';
+                    if (rem === 'amm non remboursé') color = '#a259d9';
+                    if (rem === 'rtu') color = '#ff7043';
+                    if (rem === 'groupe 3') color = '#5c6bc0';
+                    if (rem === 'liste en sus') color = '#fbc02d';
                     if (color) {
-                        li.style.background = color;
-                        li.style.borderRadius = '6px';
-                        li.style.padding = '2px 8px';
-                        li.style.marginBottom = '2px';
-                        li.style.color = (color === '#ffe082') ? '#000' : '#fff';
+                        indDiv.style.background = color;
+                        indDiv.style.borderRadius = '6px';
+                        indDiv.style.padding = '2px 8px';
+                        indDiv.style.marginBottom = '2px';
+                        indDiv.style.color = (color === '#ffe082') ? '#000' : '#fff';
+                        indDiv.style.width = '100%';
+                        indDiv.style.boxSizing = 'border-box';
                     }
-                    
-                    // Créer un conteneur pour l'indication et le bouton posologie
+                    // Texte indication + remboursement
+                    let indicationText = indicationObj.indication ? indicationObj.indication.trim() : '';
+                    if (rem) indicationText += ' (' + indicationObj.remboursement + ')';
                     const indicationContainer = document.createElement('span');
-                    indicationContainer.textContent = item;
-                    
-                    // Ajouter le bouton posologie si une posologie existe pour cette indication
-                    if (indicationsData[index] && indicationsData[index].posologie && indicationsData[index].posologie.trim() !== '') {
+                    indicationContainer.textContent = indicationText;
+                    // Bouton posologie si dispo
+                    if (indicationObj.posologie && indicationObj.posologie.trim() !== '') {
                         const posologieBtn = document.createElement('button');
                         posologieBtn.textContent = 'Poso';
                         posologieBtn.className = 'posologie-btn action-btn';
@@ -495,28 +534,23 @@ function renderTable(data, lastUpdate) {
                             const posologieBody = document.getElementById('posologie-body');
                             const posologieModal = document.getElementById('posologie-modal');
                             posologieBody.innerHTML = '';
-                            
-                            const indicationData = indicationsData[index];
                             const indicationDiv = document.createElement('div');
                             indicationDiv.style.fontWeight = 'bold';
                             indicationDiv.style.marginBottom = '10px';
                             indicationDiv.style.color = '#333';
-                            indicationDiv.textContent = indicationData.indication;
+                            indicationDiv.textContent = indicationObj.indication;
                             posologieBody.appendChild(indicationDiv);
-                            
                             const posologieDiv = document.createElement('div');
-                            posologieDiv.innerHTML = indicationData.posologie.replace(/\n/g, '<br>');
+                            posologieDiv.innerHTML = indicationObj.posologie.replace(/\n/g, '<br>');
                             posologieBody.appendChild(posologieDiv);
-                            
                             posologieModal.classList.remove('hidden');
                         };
                         indicationContainer.appendChild(posologieBtn);
                     }
-                    
-                    li.appendChild(indicationContainer);
-                    ul.appendChild(li);
+                    indDiv.appendChild(indicationContainer);
+                    indicationsBlock.appendChild(indDiv);
                 });
-                td.appendChild(ul);
+                td.appendChild(indicationsBlock);
             } else if (val.includes('•')) {
                 // Pour les autres listes à puces
                 const items = val.split('\n').map(x => x.trim()).filter(Boolean);
@@ -605,10 +639,19 @@ function renderTable(data, lastUpdate) {
                         const ficheBody = document.getElementById('fiche-body');
                         const ficheModal = document.getElementById('fiche-modal');
                         // On transforme les liens en hyperliens cliquables
-                        let ficheHtml = fiche.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-                        ficheHtml = ficheHtml.replace(/(C:[^\s]+)/g, function(match) {
-                            return `<a href="file:///${match.replace(/\\/g, '/')}", target="_blank">${match}</a>`;
-                        });
+                        let ficheHtml = fiche
+                            // Liens web d'abord
+                            .replace(/(https?:\/\/[^\s"']+)/gi, '<a href="$1" target="_blank">$1</a>')
+                            // Chemins UNC réseau (\\serveur\... ou //serveur/...) qui ne sont pas déjà dans un lien web
+                            .replace(/(^|[^\w:>])((?:\\\\|\/\/)[^\s"']+)/g, function(match, p1, p2) {
+                                // On ne transforme pas si précédé de http(s):
+                                if (/https?:$/.test(p1)) return match;
+                                return p1 + `<a href="file:///${p2.replace(/\\/g, '/')}" target="_blank">${p2}</a>`;
+                            })
+                            // Chemins locaux de type X:\... ou X:/...
+                            .replace(/\b([A-Z]:[\\/][^\s"']+)/gi, function(match) {
+                                return `<a href="file:///${match.replace(/\\/g, '/')}" target="_blank">${match}</a>`;
+                            });
                         ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
                         ficheModal.classList.remove('hidden');
                     };

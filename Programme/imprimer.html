@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Impression Thésaurus</title>
+    <script src="data.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 0; }
+        h1 { text-align: center; margin-top: 24px; }
+        table { width: 98%; margin: 24px auto; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #bbb; padding: 6px 8px; vertical-align: top; }
+        th { background: #1976d2; color: #fff; font-size: 1.1em; }
+        .indication-cell > div { margin-bottom: 2px; border-radius: 6px; padding: 2px 8px; color: #fff; }
+        .remb-amm { background: #43b581; }
+        .remb-horsamm { background: #e74c3c; }
+        .remb-ammnr { background: #a259d9; }
+        .remb-rtu { background: #ff7043; }
+        .remb-groupe3 { background: #5c6bc0; }
+        .remb-listeens { background: #fbc02d; color: #222; }
+        @media print { body { background: #fff; } }
+    </style>
+</head>
+<body>
+    <h1>Thésaurus - Impression</h1>
+    <div id="maj-date" style="text-align:center;font-size:1.08em;color:#444;margin-bottom:10px;"></div>
+    <table id="print-table">
+        <thead>
+            <tr>
+                <th>DCI</th>
+                <th>Informations produit</th>
+                <th>Surveillance</th>
+                <th>Indications</th>
+                <th>Posologies</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="print-legend" style="width:98%;margin:24px auto 0 auto;font-size:1.05em;">
+        <b>Légende couleurs indications :</b><br>
+        <span style="color:#fff; background:#43b581; padding:2px 8px; border-radius:6px;">AMM</span> : Autorisation de Mise sur le Marché<br>
+        <span style="color:#fff; background:#e74c3c; padding:2px 8px; border-radius:6px;">Hors AMM</span> : Hors Autorisation de Mise sur le Marché<br>
+        <span style="color:#fff; background:#a259d9; padding:2px 8px; border-radius:6px;">AMM non remboursé</span> : AMM non remboursé<br>
+        <span style="color:#fff; background:#ff7043; padding:2px 8px; border-radius:6px;">RTU</span> : Recommandation Temporaire d'Utilisation<br>
+        <span style="color:#fff; background:#5c6bc0; padding:2px 8px; border-radius:6px;">Groupe 3</span> : Groupe 3<br>
+        <span style="color:#222; background:#fbc02d; padding:2px 8px; border-radius:6px;">Liste en sus</span> : Liste en sus<br>
+    </div>
+    <div style="height:40px;"></div>
+    <script>
+    function getRembClass(remb) {
+        if (!remb) return '';
+        remb = remb.toLowerCase();
+        if (remb === 'amm') return 'remb-amm';
+        if (remb === 'hors amm') return 'remb-horsamm';
+        if (remb === 'amm non remboursé') return 'remb-ammnr';
+        if (remb === 'rtu') return 'remb-rtu';
+        if (remb === 'groupe 3') return 'remb-groupe3';
+        if (remb === 'liste en sus') return 'remb-listeens';
+        return '';
+    }
+    function escapeHtml(text) {
+        return text.replace(/[&<>"']/g, function(m) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+        });
+    }
+    function buildTable() {
+        if (!window.dataFromPython || !Array.isArray(window.dataFromPython.tableData)) return;
+        const data = window.dataFromPython.tableData;
+        const tbody = document.querySelector('#print-table tbody');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+            const indications = Array.isArray(row.Indications_Data) ? row.Indications_Data : [];
+            const n = indications.length || 1;
+            // Fusion des cellules DCI, Infos produit et Surveillance
+            const trFirst = document.createElement('tr');
+            // DCI
+            const tdDci = document.createElement('td');
+            tdDci.textContent = row.DCI || '';
+            tdDci.rowSpan = n;
+            trFirst.appendChild(tdDci);
+            // Infos produit
+            const tdInfos = document.createElement('td');
+            tdInfos.innerHTML = (row['Détails produit']||'').replace(/\n/g,'<br>');
+            tdInfos.rowSpan = n;
+            trFirst.appendChild(tdInfos);
+            // Surveillance
+            const tdSurv = document.createElement('td');
+            tdSurv.innerHTML = (row['Surveillance']||'').replace(/\n/g,'<br>');
+            tdSurv.rowSpan = n;
+            trFirst.appendChild(tdSurv);
+            // Indication
+            const tdInd = document.createElement('td');
+            tdInd.className = 'indication-cell';
+            if (indications[0]) {
+                const div = document.createElement('div');
+                div.className = getRembClass(indications[0].remboursement);
+                div.textContent = indications[0].indication + (indications[0].remboursement ? ' ('+indications[0].remboursement+')' : '');
+                tdInd.appendChild(div);
+            } else {
+                tdInd.textContent = '';
+            }
+            trFirst.appendChild(tdInd);
+            // Posologie
+            const tdPoso = document.createElement('td');
+            tdPoso.innerHTML = indications[0] && indications[0].posologie ? escapeHtml(indications[0].posologie).replace(/\n/g,'<br>') : '';
+            trFirst.appendChild(tdPoso);
+            tbody.appendChild(trFirst);
+            // Lignes suivantes si plusieurs indications
+            for (let i=1; i<indications.length; i++) {
+                const tr = document.createElement('tr');
+                const tdInd2 = document.createElement('td');
+                tdInd2.className = 'indication-cell';
+                const div = document.createElement('div');
+                div.className = getRembClass(indications[i].remboursement);
+                div.textContent = indications[i].indication + (indications[i].remboursement ? ' ('+indications[i].remboursement+')' : '');
+                tdInd2.appendChild(div);
+                tr.appendChild(tdInd2);
+                const tdPoso2 = document.createElement('td');
+                tdPoso2.innerHTML = indications[i].posologie ? escapeHtml(indications[i].posologie).replace(/\n/g,'<br>') : '';
+                tr.appendChild(tdPoso2);
+                tbody.appendChild(tr);
+            }
+        });
+        // Affichage de la date de mise à jour
+        if(window.dataFromPython && window.dataFromPython.lastUpdate) {
+            document.getElementById('maj-date').textContent = 'Dernière mise à jour : ' + window.dataFromPython.lastUpdate;
+        }
+    }
+    window.onload = function() {
+        buildTable();
+        setTimeout(()=>window.print(), 500);
+    };
+    </script>
+</body>
+</html> 
