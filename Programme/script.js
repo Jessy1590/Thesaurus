@@ -46,12 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const indDiv = document.createElement('div');
                         let color = '';
                         const rem = (indicationObj.remboursement || '').toLowerCase();
-                        if (rem === 'amm') color = '#43b581';
-                        if (rem === 'hors amm') color = '#e74c3c';
+                            if (rem === 'amm') color = '#43b581';
+                            if (rem === 'hors amm') color = '#e74c3c';
                         if (rem === 'amm non remboursé') color = '#a259d9';
                         if (rem === 'rtu') color = '#ff7043';
-                        if (rem === 'groupe 3') color = '#5c6bc0';
-                        if (rem === 'liste en sus') color = '#fbc02d';
+                            if (rem === 'groupe 3') color = '#5c6bc0';
+                            if (rem === 'liste en sus') color = '#fbc02d';
                         if (color) {
                             indDiv.style.background = color;
                             indDiv.style.borderRadius = '6px';
@@ -94,19 +94,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         indicationsBlock.appendChild(indDiv);
                     });
                     td.appendChild(indicationsBlock);
-                } else if (val.includes('•')) {
-                    // Pour les autres listes à puces
-                    const items = val.split('\n').map(x => x.trim()).filter(Boolean);
-                    const ul = document.createElement('ul');
-                    ul.style.margin = '0';
-                    ul.style.paddingLeft = '1.2em';
-                    items.forEach(item => {
-                        const li = document.createElement('li');
-                        li.textContent = item.replace(/^•\s*/, '');
-                        ul.appendChild(li);
+                } else if (h === 'Surveillance' && val.trim() !== '') {
+                    // Affichage multi-lignes façon pastilles, découpe sur les puces ou retours à la ligne, sans doublons
+                    let surveillances = val.includes('•') ? val.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : val.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                    surveillances = Array.from(new Set(surveillances)); // suppression des doublons
+                    const survBlock = document.createElement('div');
+                    survBlock.style.width = '100%';
+                    surveillances.forEach(surv => {
+                        const survDiv = document.createElement('div');
+                        survDiv.style.background = '#90caf9'; // bleu pastel
+                        survDiv.style.borderRadius = '6px';
+                        survDiv.style.padding = '2px 8px';
+                        survDiv.style.marginBottom = '2px';
+                        survDiv.style.color = '#1a2330';
+                        survDiv.style.width = '100%';
+                        survDiv.style.boxSizing = 'border-box';
+                        survDiv.textContent = surv;
+                        survBlock.appendChild(survDiv);
                     });
-                    td.appendChild(ul);
-                } else {
+                    td.appendChild(survBlock);
+                } else if (h !== 'Surveillance') {
                     // Sinon, on gère les retours à la ligne simples
                     td.innerHTML = val.replace(/\n/g, '<br>');
                 }
@@ -194,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Chemins locaux de type X:\... ou X:/...
                                 .replace(/\b([A-Z]:[\\/][^\s"']+)/gi, function(match) {
                                     return `<a href="file:///${match.replace(/\\/g, '/')}" target="_blank">${match}</a>`;
-                                });
+                            });
                             ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
                             ficheModal.classList.remove('hidden');
                         };
@@ -503,12 +510,12 @@ function renderTable(data, lastUpdate) {
                     const indDiv = document.createElement('div');
                     let color = '';
                     const rem = (indicationObj.remboursement || '').toLowerCase();
-                    if (rem === 'amm') color = '#43b581';
-                    if (rem === 'hors amm') color = '#e74c3c';
+                        if (rem === 'amm') color = '#43b581';
+                        if (rem === 'hors amm') color = '#e74c3c';
                     if (rem === 'amm non remboursé') color = '#a259d9';
                     if (rem === 'rtu') color = '#ff7043';
-                    if (rem === 'groupe 3') color = '#5c6bc0';
-                    if (rem === 'liste en sus') color = '#fbc02d';
+                        if (rem === 'groupe 3') color = '#5c6bc0';
+                        if (rem === 'liste en sus') color = '#fbc02d';
                     if (color) {
                         indDiv.style.background = color;
                         indDiv.style.borderRadius = '6px';
@@ -551,19 +558,26 @@ function renderTable(data, lastUpdate) {
                     indicationsBlock.appendChild(indDiv);
                 });
                 td.appendChild(indicationsBlock);
-            } else if (val.includes('•')) {
-                // Pour les autres listes à puces
-                const items = val.split('\n').map(x => x.trim()).filter(Boolean);
-                const ul = document.createElement('ul');
-                ul.style.margin = '0';
-                ul.style.paddingLeft = '1.2em';
-                items.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = item.replace(/^•\s*/, '');
-                    ul.appendChild(li);
+            } else if (h === 'Surveillance' && val.trim() !== '') {
+                // Affichage multi-lignes façon pastilles, découpe sur les puces ou retours à la ligne, sans doublons
+                let surveillances = val.includes('•') ? val.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : val.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                surveillances = Array.from(new Set(surveillances)); // suppression des doublons
+                const survBlock = document.createElement('div');
+                survBlock.style.width = '100%';
+                surveillances.forEach(surv => {
+                    const survDiv = document.createElement('div');
+                    survDiv.style.background = '#90caf9'; // bleu pastel
+                    survDiv.style.borderRadius = '6px';
+                    survDiv.style.padding = '2px 8px';
+                    survDiv.style.marginBottom = '2px';
+                    survDiv.style.color = '#1a2330';
+                    survDiv.style.width = '100%';
+                    survDiv.style.boxSizing = 'border-box';
+                    survDiv.textContent = surv;
+                    survBlock.appendChild(survDiv);
                 });
-                td.appendChild(ul);
-            } else {
+                td.appendChild(survBlock);
+            } else if (h !== 'Surveillance') {
                 // Sinon, on gère les retours à la ligne simples
                 td.innerHTML = val.replace(/\n/g, '<br>');
             }
@@ -651,7 +665,7 @@ function renderTable(data, lastUpdate) {
                             // Chemins locaux de type X:\... ou X:/...
                             .replace(/\b([A-Z]:[\\/][^\s"']+)/gi, function(match) {
                                 return `<a href="file:///${match.replace(/\\/g, '/')}" target="_blank">${match}</a>`;
-                            });
+                        });
                         ficheBody.innerHTML = ficheHtml.replace(/\n/g, '<br>');
                         ficheModal.classList.remove('hidden');
                     };
