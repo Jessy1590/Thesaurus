@@ -567,8 +567,8 @@
                 .filter(s => s && s.toString().trim() !== '');
             
             const surveillances_str = surveillances.length > 0 ? 
-                surveillances.map(s => `• ${s}`).join('\n') : '';
-            
+                surveillances.map(s => `${s}`).join('\n') : '';
+
             // Indications + remboursement + posologie (comme dans le Python)
             const indications_df = df_indications.filter(row => row.DCI_KEY === dci_key);
             const indications_with_posologie = [];
