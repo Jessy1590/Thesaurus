@@ -95,8 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     td.appendChild(indicationsBlock);
                 } else if (h === 'Surveillance' && val.trim() !== '') {
-                    // Affichage multi-lignes façon pastilles, découpe sur les puces ou retours à la ligne, sans doublons
-                    let surveillances = val.includes('•') ? val.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : val.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                    // Affichage multi-lignes façon pastilles, découpe seulement sur les puces pour séparer les surveillances distinctes
+                    let surveillances = val.split(/\n\s*•\s*/).map(x => x.trim()).filter(Boolean);
+                    // Si pas de puces, on traite comme une seule surveillance
+                    if (surveillances.length === 1 && !val.includes('•')) {
+                        surveillances = [val.trim()];
+                    }
                     surveillances = Array.from(new Set(surveillances)); // suppression des doublons
                     const survBlock = document.createElement('div');
                     survBlock.style.width = '100%';
@@ -109,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         survDiv.style.color = '#1a2330';
                         survDiv.style.width = '100%';
                         survDiv.style.boxSizing = 'border-box';
-                        survDiv.textContent = surv;
+                        // Préserver les retours à la ligne internes
+                        survDiv.innerHTML = surv.replace(/\n/g, '<br>');
                         survBlock.appendChild(survDiv);
                     });
                     td.appendChild(survBlock);
@@ -559,8 +564,12 @@ function renderTable(data, lastUpdate) {
                 });
                 td.appendChild(indicationsBlock);
             } else if (h === 'Surveillance' && val.trim() !== '') {
-                // Affichage multi-lignes façon pastilles, découpe sur les puces ou retours à la ligne, sans doublons
-                let surveillances = val.includes('•') ? val.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : val.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                // Affichage multi-lignes façon pastilles, découpe seulement sur les puces pour séparer les surveillances distinctes
+                let surveillances = val.split(/\n\s*•\s*/).map(x => x.trim()).filter(Boolean);
+                // Si pas de puces, on traite comme une seule surveillance
+                if (surveillances.length === 1 && !val.includes('•')) {
+                    surveillances = [val.trim()];
+                }
                 surveillances = Array.from(new Set(surveillances)); // suppression des doublons
                 const survBlock = document.createElement('div');
                 survBlock.style.width = '100%';
@@ -573,7 +582,8 @@ function renderTable(data, lastUpdate) {
                     survDiv.style.color = '#1a2330';
                     survDiv.style.width = '100%';
                     survDiv.style.boxSizing = 'border-box';
-                    survDiv.textContent = surv;
+                    // Préserver les retours à la ligne internes
+                    survDiv.innerHTML = surv.replace(/\n/g, '<br>');
                     survBlock.appendChild(survDiv);
                 });
                 td.appendChild(survBlock);

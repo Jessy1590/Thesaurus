@@ -7,9 +7,15 @@
     <style>
         body { font-family: Arial, sans-serif; background: #fff; margin: 0; padding: 0; }
         h1 { text-align: center; margin-top: 24px; }
-        table { width: 98%; margin: 24px auto; border-collapse: collapse; font-size: 12px; }
+        table { width: 98%; margin: 24px auto; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
         th, td { border: 1px solid #bbb; padding: 6px 8px; vertical-align: top; }
         th { background: #1976d2; color: #fff; font-size: 1.1em; }
+        /* Largeurs des colonnes */
+        th:nth-child(1), td:nth-child(1) { width: 12%; } /* DCI - plus petite */
+        th:nth-child(2), td:nth-child(2) { width: 22%; } /* Informations produit */
+        th:nth-child(3), td:nth-child(3) { width: 22%; } /* Surveillance */
+        th:nth-child(4), td:nth-child(4) { width: 22%; } /* Indications */
+        th:nth-child(5), td:nth-child(5) { width: 22%; } /* Posologies */
         .indication-cell > div { margin-bottom: 2px; border-radius: 6px; padding: 2px 8px; color: #fff; }
         .remb-amm { background: #43b581; }
         .remb-horsamm { background: #e74c3c; }
@@ -88,9 +94,31 @@
             tdInfos.innerHTML = (row['Détails produit']||'').replace(/\n/g,'<br>');
             tdInfos.rowSpan = n;
             trFirst.appendChild(tdInfos);
-            // Surveillance
+            // Surveillance avec pastilles colorées
             const tdSurv = document.createElement('td');
-            tdSurv.innerHTML = (row['Surveillance']||'').replace(/\n/g,'<br>');
+            const surveillance = row['Surveillance'] || '';
+            if (surveillance.trim() !== '') {
+                // Affichage multi-lignes façon pastilles, découpe seulement sur les puces pour séparer les surveillances distinctes
+                let surveillances = surveillance.split(/\n\s*•\s*/).map(x => x.trim()).filter(Boolean);
+                // Si pas de puces, on traite comme une seule surveillance
+                if (surveillances.length === 1 && !surveillance.includes('•')) {
+                    surveillances = [surveillance.trim()];
+                }
+                surveillances = Array.from(new Set(surveillances)); // suppression des doublons
+                surveillances.forEach(surv => {
+                    const survDiv = document.createElement('div');
+                    survDiv.style.background = '#90caf9'; // bleu pastel
+                    survDiv.style.borderRadius = '6px';
+                    survDiv.style.padding = '2px 8px';
+                    survDiv.style.marginBottom = '2px';
+                    survDiv.style.color = '#1a2330';
+                    survDiv.style.width = '100%';
+                    survDiv.style.boxSizing = 'border-box';
+                    // Préserver les retours à la ligne internes
+                    survDiv.innerHTML = surv.replace(/\n/g, '<br>');
+                    tdSurv.appendChild(survDiv);
+                });
+            }
             tdSurv.rowSpan = n;
             trFirst.appendChild(tdSurv);
             // Indication
