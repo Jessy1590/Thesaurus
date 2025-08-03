@@ -131,26 +131,81 @@ function exportToCSV(data, filename = 'thesaurus_export.csv') {
     showNotification(`Export CSV réussi : ${data.length} molécules`, 'success');
 }
 
-function exportToJSON(data, filename = 'thesaurus_export.json') {
+function exportToExcel(data, filename = 'thesaurus_export.xlsx') {
     if (!data || data.length === 0) {
         showNotification('Aucune donnée à exporter', 'warning');
         return;
     }
     
-    const exportData = {
-        exportDate: new Date().toISOString(),
-        totalMolecules: data.length,
-        data: data
-    };
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    
-    showNotification(`Export JSON réussi : ${data.length} molécules`, 'success');
+    try {
+        // Préparer les données pour l'export Excel (comme dans l'impression)
+        const excelData = data.map(row => {
+            const cleanRow = {};
+            
+            // Copier les données de base
+            Object.keys(row).forEach(key => {
+                if (key !== 'Détails produit' && key !== 'Famille de molécule' && key !== 'Fiche' && key !== 'Indications_Data') {
+                    let value = row[key];
+                    
+                    // Traiter les indications spécialement
+                    if (key === 'Indications' && Array.isArray(row['Indications_Data']) && row['Indications_Data'].length > 0) {
+                        value = row['Indications_Data'].map(indication => {
+                            let indicationText = indication.indication ? indication.indication.trim() : '';
+                            if (indication.remboursement) {
+                                indicationText += ` (${indication.remboursement})`;
+                            }
+                            if (indication.posologie && indication.posologie.trim() !== '') {
+                                indicationText += ` - Posologie: ${indication.posologie}`;
+                            }
+                            return indicationText;
+                        }).join('\n');
+                    }
+                    
+                    // Traiter la surveillance
+                    if (key === 'Surveillance' && value && value.trim() !== '') {
+                        let surveillances = value.includes('•') ? value.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : value.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                        surveillances = Array.from(new Set(surveillances));
+                        value = surveillances.join('\n');
+                    }
+                    
+                    cleanRow[key] = value;
+                }
+            });
+            
+            return cleanRow;
+        });
+        
+        // Créer le contenu CSV (format compatible Excel)
+        const headers = Object.keys(excelData[0]);
+        const csvContent = [
+            headers.join(','),
+            ...excelData.map(row => 
+                headers.map(header => {
+                    let value = row[header] || '';
+                    // Échapper les virgules et guillemets
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                        value = `"${value.replace(/"/g, '""')}"`;
+                    }
+                    return value;
+                }).join(',')
+            )
+        ].join('\n');
+        
+        // Créer le fichier avec l'extension .xlsx (mais contenu CSV)
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification(`Export Excel réussi : ${data.length} molécules`, 'success');
+    } catch (error) {
+        console.error('Erreur lors de l\'export Excel:', error);
+        showNotification('Erreur lors de l\'export Excel', 'error');
+    }
 }
 
 function exportFilteredData() {
@@ -180,11 +235,11 @@ function exportFilteredData() {
     exportMenu.innerHTML = `
         <h3 style="margin-top: 0;">📤 Exporter les données</h3>
         <p>Choisissez le format d'export :</p>
-        <button onclick="exportToCSV(window.dataFromPython.tableData, 'thesaurus_${timestamp}.csv')" style="width: 100%; margin: 5px 0; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            📊 Export CSV
+        <button onclick="exportToExcel(window.dataFromPython.tableData, 'thesaurus_${timestamp}.xlsx')" style="width: 100%; margin: 5px 0; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            📊 Export Excel
         </button>
-        <button onclick="exportToJSON(window.dataFromPython.tableData, 'thesaurus_${timestamp}.json')" style="width: 100%; margin: 5px 0; padding: 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            📄 Export JSON
+        <button onclick="exportToCSV(window.dataFromPython.tableData, 'thesaurus_${timestamp}.csv')" style="width: 100%; margin: 5px 0; padding: 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            📄 Export CSV
         </button>
         <button onclick="document.body.removeChild(this.parentElement)" style="width: 100%; margin: 5px 0; padding: 10px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">
             ❌ Annuler
@@ -378,6 +433,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Variables pour mémoriser les derniers filtres appliqués
+    let lastDciVal = '';
+    let lastIndVal = '';
+    let lastFamilleVal = '';
+    let lastRembChecked = ['AMM', 'Hors AMM', 'AMM non remboursé', 'RTU', 'Groupe 3', 'Liste en sus'];
+
     // Fonction pour générer le contenu de recherche
     function generateSearchContent() {
         const searchBody = document.getElementById('search-body');
@@ -390,13 +451,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Générer la liste des DCI uniques (triées)
         const dciList = Array.from(new Set(allData.map(row => row.DCI))).sort((a, b) => a.localeCompare(b, 'fr', {sensitivity:'base'}));
         
-        // Générer la liste des indications uniques (triées)
+        // Générer la liste des indications uniques (triées) - AMÉLIORÉ
         let indicationsSet = new Set();
         allData.forEach(row => {
             if (row.Indications && typeof row.Indications === 'string') {
                 row.Indications.split('\n').forEach(item => {
-                    const ind = item.replace(/^•\s*/, '').replace(/\s*\(.*\)$/, '').trim();
+                    const ind = item.replace(/^•\s*/, '').replace(/\s*\([^)]*\)$/, '').trim();
                     if (ind) indicationsSet.add(ind);
+                });
+            }
+            // Ajouter aussi les indications depuis Indications_Data
+            if (Array.isArray(row.Indications_Data)) {
+                row.Indications_Data.forEach(indObj => {
+                    if (indObj.indication) {
+                        const ind = indObj.indication.trim();
+                        if (ind) indicationsSet.add(ind);
+                    }
                 });
             }
         });
@@ -442,8 +512,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reconnecter les événements de fermeture des modales
     const closeModal = document.getElementById('close-modal');
     const closeSearchModal = document.getElementById('close-search-modal');
+    const closeProductModal = document.getElementById('close-product-modal');
+    const closeFicheModal = document.getElementById('close-fiche-modal');
+    const closePosologieModal = document.getElementById('close-posologie-modal');
     const infoModal = document.getElementById('info-modal');
     const searchModal = document.getElementById('search-modal');
+    const ficheModal = document.getElementById('fiche-modal');
+    const productModal = document.getElementById('product-modal');
+    const posologieModal = document.getElementById('posologie-modal');
     
     if (closeModal && infoModal) {
         closeModal.onclick = () => infoModal.classList.add('hidden');
@@ -456,6 +532,28 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSearchModal.onclick = () => searchModal.classList.add('hidden');
         searchModal.onclick = (e) => { 
             if (e.target === searchModal) searchModal.classList.add('hidden'); 
+        };
+    }
+    
+    // Event listeners pour les modales fiche, produits et posologie
+    if (closeFicheModal && ficheModal) {
+        closeFicheModal.onclick = () => ficheModal.classList.add('hidden');
+        ficheModal.onclick = (e) => { 
+            if (e.target === ficheModal) ficheModal.classList.add('hidden'); 
+        };
+    }
+    
+    if (closeProductModal && productModal) {
+        closeProductModal.onclick = () => productModal.classList.add('hidden');
+        productModal.onclick = (e) => { 
+            if (e.target === productModal) productModal.classList.add('hidden'); 
+        };
+    }
+    
+    if (closePosologieModal && posologieModal) {
+        closePosologieModal.onclick = () => posologieModal.classList.add('hidden');
+        posologieModal.onclick = (e) => { 
+            if (e.target === posologieModal) posologieModal.classList.add('hidden'); 
         };
     }
 
@@ -480,11 +578,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const legendContainer = document.createElement('div');
     legendContainer.className = 'legend';
-
-    const majContainer = document.createElement('div');
-    majContainer.className = 'maj';
-    majContainer.style.marginTop = '18px';
-    majContainer.style.fontSize = '1em';
 
     const data = window.dataFromPython.tableData;
     const lastUpdate = window.dataFromPython.lastUpdate;
@@ -706,54 +799,6 @@ document.addEventListener('DOMContentLoaded', () => {
     table.appendChild(tbody);
     container.innerHTML = '';
     container.appendChild(table);
-    
-    // Ajout d'un indicateur de performance
-    const performanceDiv = document.createElement('div');
-    performanceDiv.style.cssText = 'text-align: center; margin: 10px 0; font-size: 0.9em; color: #666;';
-    performanceDiv.innerHTML = `
-        <span>📊 ${data.length} molécule${data.length > 1 ? 's' : ''} affichée${data.length > 1 ? 's' : ''}</span>
-        <span style="margin-left: 20px;">⏱️ Chargement en ${performance.now().toFixed(0)}ms</span>
-    `;
-    container.appendChild(performanceDiv);
-    
-    // Ajout de la date de mise à jour
-    majContainer.innerHTML = `<b>Dernière mise à jour du tableau :</b> ${lastUpdate}`;
-    container.appendChild(legendContainer);
-    container.appendChild(majContainer);
-
-    // Gestion des modales (ancien code supprimé - remplacé par le menu déroulant)
-
-    // Gestion de la modale produits
-    const productModal = document.getElementById('product-modal');
-    const closeProductModal = document.getElementById('close-product-modal');
-    if (productModal && closeProductModal) {
-        closeProductModal.onclick = () => productModal.classList.add('hidden');
-        productModal.onclick = (e) => { if (e.target === productModal) productModal.classList.add('hidden'); };
-    }
-
-    // Gestion de la modale fiche
-    const ficheModal = document.getElementById('fiche-modal');
-    const closeFicheModal = document.getElementById('close-fiche-modal');
-    if (ficheModal && closeFicheModal) {
-        closeFicheModal.onclick = () => ficheModal.classList.add('hidden');
-        ficheModal.onclick = (e) => { if (e.target === ficheModal) ficheModal.classList.add('hidden'); };
-    }
-
-    // Gestion de la modale posologie
-    const posologieModal = document.getElementById('posologie-modal');
-    const closePosologieModal = document.getElementById('close-posologie-modal');
-    if (posologieModal && closePosologieModal) {
-        closePosologieModal.onclick = () => posologieModal.classList.add('hidden');
-        posologieModal.onclick = (e) => { if (e.target === posologieModal) posologieModal.classList.add('hidden'); };
-    }
-
-    // Variables pour mémoriser les derniers filtres appliqués (déplacées en haut)
-    let lastDciVal = '';
-    let lastIndVal = '';
-    let lastFamilleVal = '';
-    let lastRembChecked = ['AMM', 'Hors AMM', 'Groupe 3', 'Liste en sus'];
-
-    // Gestion de la fenêtre de recherche (modal) - ancien code supprimé
 
     // Ajouter la logique de recherche pour les boutons du menu
     document.addEventListener('click', (e) => {
@@ -799,19 +844,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 filtered = filtered.filter(row => (row['Famille de molécule'] || '').toLowerCase() === familleVal.toLowerCase());
             }
             
-            // 3. Filtre indication + remboursement
+            // 3. Filtre indication + remboursement (AMÉLIORÉ)
             filtered = filtered.map(row => {
                 let newRow = {...row};
+                
+                // Filtrage des indications textuelles
                 if (row.Indications && typeof row.Indications === 'string') {
                     const items = row.Indications.split('\n').filter(Boolean);
                     newRow.Indications = items.filter(item => {
-                        // Filtre indication (partiel, insensible à la casse)
                         let keep = true;
+                        
+                        // Filtre indication (recherche partielle améliorée)
                         if (indVal && item) {
-                            keep = item.toLowerCase().includes(indVal.toLowerCase());
+                            const cleanItem = item.replace(/^•\s*/, '').replace(/\s*\([^)]*\)$/, '').trim().toLowerCase();
+                            const searchTerms = indVal.toLowerCase().split(/\s+/);
+                            keep = searchTerms.every(term => cleanItem.includes(term));
                         }
+                        
+                        // Filtre remboursement (seulement si des filtres de remboursement sont actifs)
                         if (keep && rembChecked.length < 6) {
-                            // Filtre remboursement (exact, insensible à la casse)
                             const remMatch = item.match(/\(([^)]+)\)/);
                             if (remMatch) {
                                 const rem = remMatch[1].toLowerCase();
@@ -820,35 +871,46 @@ document.addEventListener('DOMContentLoaded', () => {
                                 keep = false;
                             }
                         }
+                        
                         return keep;
                     }).join('\n');
                 }
                 
-                // On filtre aussi Indications_Data si elle existe
+                // Filtrage des Indications_Data (structure de données)
                 if (Array.isArray(row.Indications_Data)) {
                     newRow.Indications_Data = row.Indications_Data.filter(indObj => {
                         let keep = true;
+                        
+                        // Filtre indication (recherche partielle améliorée)
                         if (indVal && indObj.indication) {
-                            keep = indObj.indication.toLowerCase().includes(indVal.toLowerCase());
+                            const cleanIndication = indObj.indication.toLowerCase();
+                            const searchTerms = indVal.toLowerCase().split(/\s+/);
+                            keep = searchTerms.every(term => cleanIndication.includes(term));
                         }
-                        if (indObj.remboursement) {
+                        
+                        // Filtre remboursement (seulement si des filtres de remboursement sont actifs)
+                        if (keep && rembChecked.length < 6 && indObj.remboursement) {
                             const rem = indObj.remboursement.toLowerCase();
-                            if (!rembChecked.some(val => rem && rem === val.toLowerCase())) return false;
-                        } else if (!keep) {
-                            return false;
+                            keep = rembChecked.some(val => rem && rem === val.toLowerCase());
                         }
+                        
                         return keep;
                     });
                 }
+                
                 return newRow;
             })
             // 4. On ne garde que les lignes où il reste au moins une indication après filtrage
             .filter(row => {
-                if ((indVal || rembChecked.length < 6) && row.Indications_Data !== undefined) {
-                    return Array.isArray(row.Indications_Data) && row.Indications_Data.length > 0;
-                }
-                if ((indVal || rembChecked.length < 6) && row.Indications !== undefined) {
-                    return row.Indications && row.Indications.trim() !== '';
+                // Si on a un filtre d'indication ou de remboursement, on vérifie qu'il reste des indications
+                if (indVal || rembChecked.length < 6) {
+                    if (row.Indications_Data !== undefined && Array.isArray(row.Indications_Data)) {
+                        return row.Indications_Data.length > 0;
+                    }
+                    if (row.Indications !== undefined) {
+                        return row.Indications && row.Indications.trim() !== '';
+                    }
+                    return false;
                 }
                 return true;
             });
@@ -885,14 +947,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 const allData = window.dataFromPython.tableData;
                 const lastUpdate = window.dataFromPython.lastUpdate;
                 
+                // Réinitialiser toutes les variables de filtres
                 lastDciVal = '';
                 lastIndVal = '';
                 lastFamilleVal = '';
-                lastRembChecked = ['AMM', 'Hors AMM', 'Groupe 3', 'Liste en sus'];
+                lastRembChecked = ['AMM', 'Hors AMM', 'AMM non remboursé', 'RTU', 'Groupe 3', 'Liste en sus'];
+                
+                // Réafficher le tableau complet
                 renderTable(allData, lastUpdate);
                 
+                // Réinitialiser les champs du formulaire et mettre à jour le popup
+                const dciSelect = document.getElementById('dci-select');
+                const indicationSelect = document.getElementById('indication-select');
+                const familleSelect = document.getElementById('famille-select');
+                const rembFilters = document.querySelectorAll('.remb-filter');
+                
+                if (dciSelect) dciSelect.value = '';
+                if (indicationSelect) indicationSelect.value = '';
+                if (familleSelect) familleSelect.value = '';
+                if (rembFilters.length > 0) {
+                    rembFilters.forEach(filter => {
+                        filter.checked = true; // Cocher tous les remboursements
+                    });
+                }
+                
+                // Cacher le message "pas de résultat"
+                const noResultMsg = document.getElementById('no-result-msg');
+                if (noResultMsg) noResultMsg.style.display = 'none';
+                
+                // Fermer le popup de recherche
                 const searchModal = document.getElementById('search-modal');
-                if (searchModal) searchModal.classList.add('hidden');
+                if (searchModal) {
+                    searchModal.classList.add('hidden');
+                }
             }
         }
     });
@@ -909,6 +996,12 @@ function renderTable(data, updateDate) {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const tbody = document.createElement('tbody');
+    
+    // Créer le conteneur pour la date de mise à jour
+    const majContainer = document.createElement('div');
+    majContainer.className = 'maj';
+    majContainer.style.marginTop = '18px';
+    majContainer.style.fontSize = '1em';
     // En-têtes
     const headers = Object.keys(data[0]);
     const trHead = document.createElement('tr');
@@ -1113,10 +1206,6 @@ function renderTable(data, updateDate) {
     container.innerHTML = '';
     container.appendChild(table);
     // Ajout de la date de mise à jour
-    const majContainer = document.createElement('div');
-    majContainer.className = 'maj';
-    majContainer.style.marginTop = '18px';
-    majContainer.style.fontSize = '1em';
-    majContainer.innerHTML = `<b>Dernière mise à jour du tableau :</b> ${lastUpdate}`;
+    majContainer.innerHTML = `<b>Dernière mise à jour du tableau :</b> ${updateDate}`;
     container.appendChild(majContainer);
-} 
+}

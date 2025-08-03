@@ -51,6 +51,7 @@
 <body>
     <h1>Thésaurus - Impression</h1>
     <div id="maj-date" style="text-align:center;font-size:1.08em;color:#444;margin-bottom:10px;"></div>
+
     <table id="print-table">
         <thead>
             <tr>
@@ -170,6 +171,201 @@
             document.getElementById('maj-date').textContent = 'Dernière mise à jour : ' + window.dataFromPython.lastUpdate;
         }
     }
+    // Fonction pour afficher une notification
+    function showNotification(message, type = 'info', duration = 3000) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        
+        if (type === 'success') notification.style.background = '#4caf50';
+        else if (type === 'error') notification.style.background = '#f44336';
+        else if (type === 'warning') notification.style.background = '#ff9800';
+        else notification.style.background = '#2196f3';
+        
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.style.transform = 'translateX(0)', 100);
+        setTimeout(() => {
+            notification.style.transform = 'translateX(400px)';
+            setTimeout(() => document.body.removeChild(notification), 300);
+        }, duration);
+    }
+
+    // Fonction pour exporter en Excel (format CSV avec extension .xlsx)
+    function exportToExcel() {
+        if (!window.dataFromPython || !Array.isArray(window.dataFromPython.tableData)) {
+            showNotification('Aucune donnée disponible', 'error');
+            return;
+        }
+        
+        const data = window.dataFromPython.tableData;
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        
+        try {
+            // Préparer les données pour l'export Excel (comme dans l'impression)
+            const excelData = data.map(row => {
+                const cleanRow = {};
+                
+                // Copier les données de base
+                Object.keys(row).forEach(key => {
+                    if (key !== 'Détails produit' && key !== 'Famille de molécule' && key !== 'Fiche' && key !== 'Indications_Data') {
+                        let value = row[key];
+                        
+                        // Traiter les indications spécialement
+                        if (key === 'Indications' && Array.isArray(row['Indications_Data']) && row['Indications_Data'].length > 0) {
+                            value = row['Indications_Data'].map(indication => {
+                                let indicationText = indication.indication ? indication.indication.trim() : '';
+                                if (indication.remboursement) {
+                                    indicationText += ` (${indication.remboursement})`;
+                                }
+                                if (indication.posologie && indication.posologie.trim() !== '') {
+                                    indicationText += ` - Posologie: ${indication.posologie}`;
+                                }
+                                return indicationText;
+                            }).join('\n');
+                        }
+                        
+                        // Traiter la surveillance
+                        if (key === 'Surveillance' && value && value.trim() !== '') {
+                            let surveillances = value.includes('•') ? value.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : value.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                            surveillances = Array.from(new Set(surveillances));
+                            value = surveillances.join('\n');
+                        }
+                        
+                        cleanRow[key] = value;
+                    }
+                });
+                
+                return cleanRow;
+            });
+            
+            // Créer le contenu CSV (format compatible Excel)
+            const headers = Object.keys(excelData[0]);
+            const csvContent = [
+                headers.join(','),
+                ...excelData.map(row => 
+                    headers.map(header => {
+                        let value = row[header] || '';
+                        // Échapper les virgules et guillemets
+                        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                            value = `"${value.replace(/"/g, '""')}"`;
+                        }
+                        return value;
+                    }).join(',')
+                )
+            ].join('\n');
+            
+            // Créer le fichier CSV avec l'extension .xlsx pour Excel
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `thesaurus_${timestamp}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification(`Export Excel réussi : ${data.length} molécules (fichier CSV avec extension .xlsx)`, 'success');
+        } catch (error) {
+            console.error('Erreur lors de l\'export Excel:', error);
+            showNotification('Erreur lors de l\'export Excel', 'error');
+        }
+    }
+
+    // Fonction pour exporter en CSV
+    function exportToCSV() {
+        if (!window.dataFromPython || !Array.isArray(window.dataFromPython.tableData)) {
+            showNotification('Aucune donnée disponible', 'error');
+            return;
+        }
+        
+        const data = window.dataFromPython.tableData;
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        
+        try {
+            // Préparer les données pour l'export CSV (comme dans l'impression)
+            const csvData = data.map(row => {
+                const cleanRow = {};
+                
+                // Copier les données de base
+                Object.keys(row).forEach(key => {
+                    if (key !== 'Détails produit' && key !== 'Famille de molécule' && key !== 'Fiche' && key !== 'Indications_Data') {
+                        let value = row[key];
+                        
+                        // Traiter les indications spécialement
+                        if (key === 'Indications' && Array.isArray(row['Indications_Data']) && row['Indications_Data'].length > 0) {
+                            value = row['Indications_Data'].map(indication => {
+                                let indicationText = indication.indication ? indication.indication.trim() : '';
+                                if (indication.remboursement) {
+                                    indicationText += ` (${indication.remboursement})`;
+                                }
+                                if (indication.posologie && indication.posologie.trim() !== '') {
+                                    indicationText += ` - Posologie: ${indication.posologie}`;
+                                }
+                                return indicationText;
+                            }).join('\n');
+                        }
+                        
+                        // Traiter la surveillance
+                        if (key === 'Surveillance' && value && value.trim() !== '') {
+                            let surveillances = value.includes('•') ? value.split(/\n|\r|•/).map(x => x.trim()).filter(Boolean) : value.split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+                            surveillances = Array.from(new Set(surveillances));
+                            value = surveillances.join('\n');
+                        }
+                        
+                        cleanRow[key] = value;
+                    }
+                });
+                
+                return cleanRow;
+            });
+            
+            // Créer le contenu CSV
+            const headers = Object.keys(csvData[0]);
+            const csvContent = [
+                headers.join(','),
+                ...csvData.map(row => 
+                    headers.map(header => {
+                        let value = row[header] || '';
+                        // Échapper les virgules et guillemets
+                        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                            value = `"${value.replace(/"/g, '""')}"`;
+                        }
+                        return value;
+                    }).join(',')
+                )
+            ].join('\n');
+            
+            // Créer le fichier CSV
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `thesaurus_${timestamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification(`Export CSV réussi : ${data.length} molécules`, 'success');
+        } catch (error) {
+            console.error('Erreur lors de l\'export CSV:', error);
+            showNotification('Erreur lors de l\'export CSV', 'error');
+        }
+    }
+
     window.onload = function() {
         buildTable();
         setTimeout(()=>window.print(), 500);
