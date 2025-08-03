@@ -29,6 +29,22 @@
                 print-color-adjust: exact !important;
             }
             body { background: #fff; }
+            .page-break { page-break-before: always; }
+            table { page-break-inside: avoid; }
+            tr { page-break-inside: avoid; }
+            td { page-break-inside: avoid; }
+        }
+        
+        /* Optimisations pour l'impression */
+        @media print {
+            #print-legend {
+                page-break-inside: avoid;
+                margin-top: 20px;
+            }
+            
+            .indication-cell > div {
+                page-break-inside: avoid;
+            }
         }
     </style>
 </head>
